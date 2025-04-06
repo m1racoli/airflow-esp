@@ -2,14 +2,15 @@
 #![no_main]
 
 use airflow_esp::display::Display;
+use airflow_esp::wifi::init_wifi_stack;
 use airflow_esp::State;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::i2c::master::{Config, I2c};
+use esp_hal::rng::Rng;
 use esp_hal::timer::systimer::SystemTimer;
-use esp_hal::timer::timg::TimerGroup;
 use log::info;
 
 extern crate alloc;
@@ -42,16 +43,31 @@ async fn main(spawner: Spawner) {
     info!("Embassy initialized!");
 
     // Wi-Fi
-    let timer1 = TimerGroup::new(peripherals.TIMG0);
-    let _init = esp_wifi::init(
-        timer1.timer0,
-        esp_hal::rng::Rng::new(peripherals.RNG),
+    let rng = Rng::new(peripherals.RNG);
+    let stack = init_wifi_stack(
+        spawner,
+        rng,
+        peripherals.TIMG0,
         peripherals.RADIO_CLK,
-    )
-    .unwrap();
+        peripherals.WIFI,
+    );
+    info!("Network stack initialized!");
 
-    // TODO: Spawn some tasks
-    let _ = spawner;
+    loop {
+        if stack.is_link_up() {
+            break;
+        }
+        Timer::after(Duration::from_millis(500)).await;
+    }
+    info!("Network link up!");
+
+    loop {
+        if let Some(config) = stack.config_v4() {
+            info!("Got IP: {}", config.address);
+            break;
+        }
+        Timer::after(Duration::from_millis(500)).await;
+    }
 
     info!("Hello world!");
 
