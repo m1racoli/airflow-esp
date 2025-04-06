@@ -1,5 +1,6 @@
 use crate::mk_static;
 use crate::Event;
+use crate::CONFIG;
 use crate::EVENTS;
 use embassy_executor::Spawner;
 use embassy_net::{Runner, Stack, StackResources};
@@ -10,15 +11,13 @@ use esp_hal::peripherals::WIFI;
 use esp_hal::rng::Rng;
 use esp_hal::timer::timg::TimerGroup;
 use esp_hal::timer::timg::TimerGroupInstance;
+use esp_wifi::wifi::AuthMethod;
 use esp_wifi::{
     config::PowerSaveMode,
     wifi::{ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState},
     EspWifiController,
 };
 use log::info;
-
-const SSID: &str = env!("SSID");
-const PASSWORD: &str = env!("PASSWORD");
 
 pub fn init_wifi_stack<T: TimerGroupInstance>(
     spawner: Spawner,
@@ -67,10 +66,19 @@ async fn connection(mut controller: WifiController<'static>) {
             Timer::after(Duration::from_millis(5000)).await
         }
 
+        let ssid = CONFIG.wifi.ssid;
+        let password = CONFIG.wifi.password;
+        let auth_method = if password.is_empty() {
+            AuthMethod::None
+        } else {
+            AuthMethod::default()
+        };
+
         if !matches!(controller.is_started(), Ok(true)) {
             let client_config = Configuration::Client(ClientConfiguration {
-                ssid: SSID.try_into().unwrap(),
-                password: PASSWORD.try_into().unwrap(),
+                ssid: ssid.try_into().unwrap(),
+                password: password.try_into().unwrap(),
+                auth_method,
                 ..Default::default()
             });
             controller.set_configuration(&client_config).unwrap();

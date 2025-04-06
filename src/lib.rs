@@ -20,6 +20,10 @@ pub mod wifi;
 pub static EVENTS: Channel<CriticalSectionRawMutex, Event, 8> = Channel::new();
 pub static STATE: Watch<CriticalSectionRawMutex, State, 1> = Watch::new();
 
+static_toml::static_toml! {
+    pub const CONFIG = include_toml!("config.toml");
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Event {
     Connection(bool),
