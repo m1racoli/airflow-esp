@@ -1,12 +1,4 @@
 #![no_std]
-pub mod display;
-pub mod wifi;
-
-#[derive(Debug, Default)]
-pub struct State {
-    pub connected: bool,
-    pub ip: Option<core::net::IpAddr>,
-}
 
 // When you are okay with using a nightly compiler it's better to use https://docs.rs/static_cell/2.1.0/static_cell/macro.make_static.html
 macro_rules! mk_static {
@@ -17,4 +9,25 @@ macro_rules! mk_static {
         x
     }};
 }
+
+use core::net::Ipv4Addr;
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, watch::Watch};
 pub(crate) use mk_static;
+
+pub mod display;
+pub mod wifi;
+
+pub static EVENTS: Channel<CriticalSectionRawMutex, Event, 8> = Channel::new();
+pub static STATE: Watch<CriticalSectionRawMutex, State, 1> = Watch::new();
+
+#[derive(Debug, Clone, Copy)]
+pub enum Event {
+    Connection(bool),
+    Ip(Option<Ipv4Addr>),
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct State {
+    pub connected: bool,
+    pub ip: Option<core::net::Ipv4Addr>,
+}

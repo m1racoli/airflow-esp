@@ -10,6 +10,7 @@ dependencies = [
  "display-interface",
  "embassy-executor",
  "embassy-net",
+ "embassy-sync",
  "embassy-time",
  "embedded-graphics",
  "embedded-io",

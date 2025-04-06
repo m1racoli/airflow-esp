@@ -1,4 +1,6 @@
 use crate::mk_static;
+use crate::Event;
+use crate::EVENTS;
 use embassy_executor::Spawner;
 use embassy_net::{Runner, Stack, StackResources};
 use embassy_time::{Duration, Timer};
@@ -53,12 +55,15 @@ pub fn init_wifi_stack<T: TimerGroupInstance>(
 
 #[embassy_executor::task]
 async fn connection(mut controller: WifiController<'static>) {
+    let sender = EVENTS.sender();
     info!("start connection task");
     info!("Device capabilities: {:?}", controller.capabilities());
     loop {
         if esp_wifi::wifi::wifi_state() == WifiState::StaConnected {
             // wait until we're no longer connected
             controller.wait_for_event(WifiEvent::StaDisconnected).await;
+            sender.send(Event::Connection(false)).await;
+            info!("Wifi disconnected!");
             Timer::after(Duration::from_millis(5000)).await
         }
 
@@ -66,18 +71,19 @@ async fn connection(mut controller: WifiController<'static>) {
             let client_config = Configuration::Client(ClientConfiguration {
                 ssid: SSID.try_into().unwrap(),
                 password: PASSWORD.try_into().unwrap(),
-                // auth_method: esp_wifi::wifi::AuthMethod::None,
                 ..Default::default()
             });
             controller.set_configuration(&client_config).unwrap();
-            info!("Starting wifi");
             controller.start_async().await.unwrap();
             info!("Wifi started!");
         }
         info!("About to connect...");
 
         match controller.connect_async().await {
-            Ok(_) => info!("Wifi connected!"),
+            Ok(_) => {
+                sender.send(Event::Connection(true)).await;
+                info!("Wifi connected!")
+            }
             Err(e) => {
                 info!("Failed to connect to wifi: {e:?}");
                 Timer::after(Duration::from_millis(5000)).await

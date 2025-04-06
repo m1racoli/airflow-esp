@@ -3,7 +3,7 @@
 
 use airflow_esp::display::Display;
 use airflow_esp::wifi::init_wifi_stack;
-use airflow_esp::State;
+use airflow_esp::{Event, State, EVENTS, STATE};
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
@@ -11,6 +11,7 @@ use esp_hal::clock::CpuClock;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::rng::Rng;
 use esp_hal::timer::systimer::SystemTimer;
+use esp_hal::Blocking;
 use log::info;
 
 extern crate alloc;
@@ -22,15 +23,17 @@ async fn main(spawner: Spawner) {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
-    let state = State::default();
+    // Event handler
+    spawner.spawn(event_handler()).ok();
+    info!("Event handler initialized!");
 
     // Display
     let i2c = I2c::new(peripherals.I2C0, Config::default())
         .unwrap()
         .with_sda(peripherals.GPIO6)
         .with_scl(peripherals.GPIO7);
-    let mut display = Display::init(i2c).expect("Failed to initialize display");
-    display.update(state).expect("Failed to update display");
+    let display = Display::init(i2c).expect("Failed to initialize display");
+    spawner.spawn(render(display)).ok();
     info!("Display initialized!");
 
     // Heap
@@ -64,6 +67,7 @@ async fn main(spawner: Spawner) {
     loop {
         if let Some(config) = stack.config_v4() {
             info!("Got IP: {}", config.address);
+            EVENTS.send(Event::Ip(Some(config.address.address()))).await;
             break;
         }
         Timer::after(Duration::from_millis(500)).await;
@@ -73,5 +77,42 @@ async fn main(spawner: Spawner) {
 
     loop {
         Timer::after(Duration::from_secs(1)).await;
+    }
+}
+
+#[embassy_executor::task]
+async fn event_handler() {
+    let mut state = State::default();
+    let sender = STATE.sender();
+    sender.send(state);
+
+    loop {
+        let event = EVENTS.receive().await;
+        match event {
+            Event::Connection(connected) => {
+                state.connected = connected;
+            }
+            Event::Ip(ip) => {
+                state.ip = ip;
+            }
+        }
+        sender.send(state);
+    }
+}
+
+#[embassy_executor::task]
+async fn render(mut display: Display<'static, Blocking>) {
+    let mut receiver = STATE.receiver().unwrap();
+    let state = receiver.get().await;
+    match display.update(state) {
+        Ok(_) => {}
+        Err(e) => info!("Failed to update display: {:?}", e),
+    }
+    loop {
+        let state = receiver.changed().await;
+        match display.update(state) {
+            Ok(_) => {}
+            Err(e) => info!("Failed to update display: {:?}", e),
+        }
     }
 }
