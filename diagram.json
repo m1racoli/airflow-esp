@@ -1,15 +1,26 @@
 {
     "version": 1,
+    "author": "Cedrik Neumann [m1racoli]",
     "editor": "wokwi",
     "parts": [
         {
             "type": "board-esp32-c3-devkitm-1",
             "id": "esp",
-            "top": 0.59,
-            "left": 0.67,
+            "top": 0,
+            "left": 0,
+            "rotate": 90,
             "attrs": {
                 "flashSize": "16"
             }
+        },
+        {
+            "type": "board-ssd1306",
+            "id": "ssd1306",
+            "top": 25,
+            "left": 200,
+            "rotate": 0,
+            "hide": false
+
         }
     ],
     "connections": [
@@ -17,14 +28,18 @@
             "esp:TX",
             "$serialMonitor:RX",
             "",
-            []
+            [ ]
         ],
         [
             "esp:RX",
             "$serialMonitor:TX",
             "",
-            []
-        ]
+            [ ]
+        ],
+        [ "esp:5V.2", "ssd1306:VCC", "red", [ "*", "v-36" ] ],
+        [ "esp:GND.4", "ssd1306:GND", "black", [ "*", "v-44" ] ],
+        [ "esp:7", "ssd1306:SCL", "green", [ "v16", "h128", "*", "v-28" ] ],
+        [ "esp:6", "ssd1306:SDA", "green", [ "v24", "h128", "*", "v-20" ] ]
     ],
     "serialMonitor": {
         "display": "terminal",
