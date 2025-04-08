@@ -1,5 +1,6 @@
 use core::net::{IpAddr, SocketAddr};
 
+use crate::{Event, CONFIG, EVENTS};
 use embassy_net::{
     udp::{PacketMetadata, UdpSocket},
     Stack,
@@ -7,9 +8,9 @@ use embassy_net::{
 use embassy_time::{Duration, Instant, Timer};
 use log::info;
 use smoltcp::wire::DnsQueryType;
-use sntpc::{get_time, NtpContext, NtpResult, NtpTimestampGenerator};
-
-use crate::{Event, CONFIG, EVENTS};
+#[cfg(feature = "stats")]
+use sntpc::NtpResult;
+use sntpc::{get_time, NtpContext, NtpTimestampGenerator};
 
 #[embassy_executor::task]
 pub async fn measure_time(stack: Stack<'static>) {
@@ -40,6 +41,7 @@ pub async fn measure_time(stack: Stack<'static>) {
 
     let addr: IpAddr = ntp_address[0].into();
     let socket_addr = SocketAddr::new(addr, 123);
+    #[cfg(feature = "stats")]
     let mut first: Option<NtpResult> = None;
     let context = NtpContext::new(Timestamp::default());
 
@@ -52,6 +54,7 @@ pub async fn measure_time(stack: Stack<'static>) {
             Ok(result) => {
                 EVENTS.send(Event::Ntp(result)).await;
                 info!("{:?}", result);
+                #[cfg(feature = "stats")]
                 match first {
                     Some(first) => {
                         let offset_diff = result.offset - first.offset;

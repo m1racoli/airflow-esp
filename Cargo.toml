@@ -81,3 +81,4 @@ overflow-checks = false
 [features]
 default = []
 wokwi = []
+stats = ["esp-alloc/internal-heap-stats"]

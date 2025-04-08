@@ -76,6 +76,8 @@ async fn main(spawner: Spawner) {
     }
 
     spawner.must_spawn(measure_time(stack));
+    #[cfg(feature = "stats")]
+    spawner.spawn(heap_stats()).ok();
 
     loop {
         Timer::after(Duration::from_secs(1)).await;
@@ -129,5 +131,15 @@ async fn render(mut display: Display<'static, Blocking>) {
             Ok(_) => {}
             Err(e) => info!("Failed to update display: {:?}", e),
         }
+    }
+}
+
+#[cfg(feature = "stats")]
+#[embassy_executor::task]
+async fn heap_stats() {
+    loop {
+        let stats = esp_alloc::HEAP.stats();
+        info!("{}", stats);
+        Timer::after(Duration::from_secs(60)).await;
     }
 }
