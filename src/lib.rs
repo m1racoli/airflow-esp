@@ -22,13 +22,8 @@ pub mod wifi;
 pub static EVENTS: Channel<CriticalSectionRawMutex, Event, 8> = Channel::new();
 pub static STATE: Watch<CriticalSectionRawMutex, State, 1> = Watch::new();
 
-#[cfg(not(feature = "wokwi"))]
 static_toml::static_toml! {
     pub const CONFIG = include_toml!("config.toml");
-}
-#[cfg(feature = "wokwi")]
-static_toml::static_toml! {
-    pub const CONFIG = include_toml!("wokwi.toml");
 }
 
 #[derive(Debug, Clone, Copy)]
