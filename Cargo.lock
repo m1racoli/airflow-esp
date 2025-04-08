@@ -6,9 +6,11 @@ version = 4
 name = "airflow-esp"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "critical-section",
  "display-interface",
  "embassy-executor",
+ "embassy-futures",
  "embassy-net",
  "embassy-sync",
  "embassy-time",
@@ -24,6 +26,7 @@ dependencies = [
  "heapless",
  "log",
  "smoltcp",
+ "sntpc",
  "ssd1306",
  "static-toml",
  "static_cell",
@@ -119,6 +122,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a7964611d71df112cb1730f2ee67324fcf4d0fc6606acbbe9bfe06df124637c"
 dependencies = [
  "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -1153,6 +1157,16 @@ dependencies = [
  "cfg-if",
  "heapless",
  "managed",
+]
+
+[[package]]
+name = "sntpc"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78f778a0f82b3cf5d75f858eceee38e84d5292f1d03415e88cc4ec45ca6ba8a2"
+dependencies = [
+ "cfg-if",
+ "embassy-net",
 ]
 
 [[package]]

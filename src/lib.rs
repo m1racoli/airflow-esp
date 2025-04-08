@@ -13,8 +13,10 @@ macro_rules! mk_static {
 use core::net::Ipv4Addr;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, watch::Watch};
 pub(crate) use mk_static;
+use sntpc::NtpResult;
 
 pub mod display;
+pub mod time;
 pub mod wifi;
 
 pub static EVENTS: Channel<CriticalSectionRawMutex, Event, 8> = Channel::new();
@@ -33,10 +35,12 @@ static_toml::static_toml! {
 pub enum Event {
     Connection(bool),
     Ip(Option<Ipv4Addr>),
+    Ntp(NtpResult),
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct State {
     pub connected: bool,
     pub ip: Option<core::net::Ipv4Addr>,
+    pub ntp: Option<NtpResult>,
 }

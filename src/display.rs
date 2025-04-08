@@ -1,8 +1,10 @@
+use chrono::{DateTime, Utc};
 use core::fmt::Write;
 use display_interface::DisplayError;
+use embassy_time::{Duration, Instant};
 use embedded_graphics::{
     mono_font::{
-        ascii::{FONT_6X10, FONT_9X18_BOLD},
+        ascii::{FONT_5X7, FONT_9X18_BOLD},
         MonoTextStyle, MonoTextStyleBuilder,
     },
     pixelcolor::BinaryColor,
@@ -42,7 +44,7 @@ where
 
         // Specify different text styles
         let text_style = MonoTextStyleBuilder::new()
-            .font(&FONT_6X10)
+            .font(&FONT_5X7)
             .text_color(BinaryColor::On)
             .build();
 
@@ -60,7 +62,7 @@ where
 
     pub fn update(&mut self, state: State) -> Result<(), DisplayError> {
         let mut y = 9i32;
-        let mut buf: heapless::String<32> = heapless::String::new();
+        let mut buf: heapless::String<64> = heapless::String::new();
 
         // title
         y = self.draw_title("Airflow ESP", y)?;
@@ -77,6 +79,19 @@ where
             write!(&mut buf, "IP: {}", ip).unwrap();
         } else {
             write!(&mut buf, "IP: n/a").unwrap();
+        }
+        y = self.draw_text(&buf, y)?;
+        buf.clear();
+
+        // Time
+        if let Some(ntp) = state.ntp {
+            let now = Instant::now();
+            let now_corrected = now + Duration::from_micros(ntp.offset as u64);
+            let dt =
+                DateTime::<Utc>::from_timestamp_micros(now_corrected.as_micros() as i64).unwrap();
+            write!(&mut buf, "Time: {}", dt.format("%Y-%m-%d %H:%M:%S")).unwrap();
+        } else {
+            write!(&mut buf, "Time: n/a").unwrap();
         }
         _ = self.draw_text(&buf, y)?;
         buf.clear();

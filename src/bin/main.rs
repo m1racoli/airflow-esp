@@ -2,10 +2,12 @@
 #![no_main]
 
 use airflow_esp::display::Display;
+use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
 use airflow_esp::{Event, State, EVENTS, STATE};
 use embassy_executor::Spawner;
-use embassy_time::{Duration, Timer};
+use embassy_futures::select::{select, Either};
+use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::i2c::master::{Config, I2c};
@@ -73,7 +75,7 @@ async fn main(spawner: Spawner) {
         Timer::after(Duration::from_millis(500)).await;
     }
 
-    info!("Hello world!");
+    spawner.must_spawn(measure_time(stack));
 
     loop {
         Timer::after(Duration::from_secs(1)).await;
@@ -95,6 +97,9 @@ async fn event_handler() {
             Event::Ip(ip) => {
                 state.ip = ip;
             }
+            Event::Ntp(ntp_result) => {
+                state.ntp = Some(ntp_result);
+            }
         }
         sender.send(state);
     }
@@ -103,13 +108,23 @@ async fn event_handler() {
 #[embassy_executor::task]
 async fn render(mut display: Display<'static, Blocking>) {
     let mut receiver = STATE.receiver().unwrap();
-    let state = receiver.get().await;
+
+    let mut state = receiver.get().await;
     match display.update(state) {
         Ok(_) => {}
         Err(e) => info!("Failed to update display: {:?}", e),
     }
     loop {
-        let state = receiver.changed().await;
+        let remainder = Instant::now().as_millis() % 1000;
+        match select(
+            receiver.changed(),
+            Timer::after(Duration::from_millis(1000 - remainder)),
+        )
+        .await
+        {
+            Either::First(s) => state = s,
+            Either::Second(_) => {}
+        }
         match display.update(state) {
             Ok(_) => {}
             Err(e) => info!("Failed to update display: {:?}", e),
