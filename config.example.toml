@@ -1,3 +1,6 @@
 [wifi]
 ssid = "My Wifi"
 password = "mypass"
+
+[ntp]
+server = "pool.ntp.org"

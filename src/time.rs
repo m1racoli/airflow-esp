@@ -6,9 +6,10 @@ use embassy_net::{
 };
 use embassy_time::{Duration, Instant, Timer};
 use log::info;
+use smoltcp::wire::DnsQueryType;
 use sntpc::{get_time, NtpContext, NtpResult, NtpTimestampGenerator};
 
-use crate::{Event, EVENTS};
+use crate::{Event, CONFIG, EVENTS};
 
 #[embassy_executor::task]
 pub async fn measure_time(stack: Stack<'static>) {
@@ -27,10 +28,9 @@ pub async fn measure_time(stack: Stack<'static>) {
     );
     socket.bind(123).unwrap();
 
-    info!("Socket bound!");
-
+    // TODO: query DNS on every loop iteration
     let ntp_address = stack
-        .dns_query("pool.ntp.org", smoltcp::wire::DnsQueryType::A)
+        .dns_query(CONFIG.ntp.server, DnsQueryType::A)
         .await
         .expect("Failed to resolve DNS");
 
@@ -38,18 +38,20 @@ pub async fn measure_time(stack: Stack<'static>) {
         panic!("Empty DNS response");
     }
 
-    info!("NTP address: {:?}", ntp_address);
-
     let addr: IpAddr = ntp_address[0].into();
     let socket_addr = SocketAddr::new(addr, 123);
     let mut first: Option<NtpResult> = None;
     let context = NtpContext::new(Timestamp::default());
 
+    // the first request has some delay (around 500 ms)
+    // warming up the socket
+    get_time(socket_addr, &socket, context).await.ok();
+
     loop {
         match get_time(socket_addr, &socket, context).await {
             Ok(result) => {
                 EVENTS.send(Event::Ntp(result)).await;
-                info!("NTP result: {:?}", result);
+                info!("{:?}", result);
                 match first {
                     Some(first) => {
                         let offset_diff = result.offset - first.offset;
@@ -62,7 +64,7 @@ pub async fn measure_time(stack: Stack<'static>) {
                     }
                 }
 
-                Timer::after(Duration::from_secs(600)).await;
+                Timer::after(Duration::from_secs(3600)).await;
             }
             Err(e) => {
                 info!("Failed to get NTP time: {:?}", e);
@@ -98,15 +100,3 @@ impl Default for Timestamp {
         }
     }
 }
-
-// Scenario 1:
-// Timestamp is always 0
-// offset is relative to 0
-// current time = 0 + offset + time since measurement
-// problem: offset only applies to time of invocation
-
-// Scenario 2:
-// Timestamp is instant now
-// offset is relative to instant now
-// current time = now + offset
-// problem: offset only works if instant does not drift
