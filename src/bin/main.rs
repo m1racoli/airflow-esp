@@ -32,8 +32,8 @@ async fn main(spawner: Spawner) {
     // Display
     let i2c = I2c::new(peripherals.I2C0, Config::default())
         .unwrap()
-        .with_sda(peripherals.GPIO6)
-        .with_scl(peripherals.GPIO7);
+        .with_sda(peripherals.GPIO0)
+        .with_scl(peripherals.GPIO1);
     let display = Display::init(i2c).expect("Failed to initialize display");
     spawner.spawn(render(display)).ok();
     info!("Display initialized!");
