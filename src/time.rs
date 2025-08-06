@@ -53,7 +53,7 @@ pub async fn measure_time(stack: Stack<'static>) {
         match get_time(socket_addr, &socket, context).await {
             Ok(result) => {
                 EVENTS.send(Event::Ntp(result)).await;
-                info!("{:?}", result);
+                info!("{result:?}");
                 #[cfg(feature = "stats")]
                 match first {
                     Some(first) => {
@@ -70,7 +70,7 @@ pub async fn measure_time(stack: Stack<'static>) {
                 Timer::after(Duration::from_secs(3600)).await;
             }
             Err(e) => {
-                info!("Failed to get NTP time: {:?}", e);
+                info!("Failed to get NTP time: {e:?}");
                 Timer::after(Duration::from_secs(5)).await;
             }
         }

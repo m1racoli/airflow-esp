@@ -5,35 +5,23 @@ use crate::EVENTS;
 use embassy_executor::Spawner;
 use embassy_net::{Runner, Stack, StackResources};
 use embassy_time::{Duration, Timer};
-use esp_hal::peripheral::Peripheral;
-use esp_hal::peripherals::RADIO_CLK;
-use esp_hal::peripherals::WIFI;
 use esp_hal::rng::Rng;
-use esp_hal::timer::timg::TimerGroup;
-use esp_hal::timer::timg::TimerGroupInstance;
 use esp_wifi::wifi::AuthMethod;
 use esp_wifi::{
     config::PowerSaveMode,
-    wifi::{ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState},
-    EspWifiController,
+    wifi::{
+        ClientConfiguration, Configuration, Interfaces, WifiController, WifiDevice, WifiEvent,
+        WifiState,
+    },
 };
 use log::info;
 
-pub fn init_wifi_stack<T: TimerGroupInstance>(
+pub fn init_wifi_stack(
     spawner: Spawner,
     mut rng: Rng,
-    timer_group: T,
-    radio_clocks: impl Peripheral<P = RADIO_CLK> + 'static,
-    device: impl Peripheral<P = WIFI> + 'static,
+    mut controller: WifiController<'static>,
+    interfaces: Interfaces<'static>,
 ) -> Stack<'static> {
-    let timer_group: TimerGroup<_> = TimerGroup::new(timer_group);
-
-    let esp_wifi_ctrl = &*mk_static!(
-        EspWifiController<'static>,
-        esp_wifi::init(timer_group.timer0, rng, radio_clocks).unwrap()
-    );
-
-    let (mut controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, device).unwrap();
     controller.set_power_saving(PowerSaveMode::Minimum).unwrap();
 
     let wifi_interface = interfaces.sta;
@@ -79,8 +67,8 @@ async fn connection(mut controller: WifiController<'static>) {
 
         if !matches!(controller.is_started(), Ok(true)) {
             let client_config = Configuration::Client(ClientConfiguration {
-                ssid: ssid.try_into().unwrap(),
-                password: password.try_into().unwrap(),
+                ssid: ssid.into(),
+                password: password.into(),
                 auth_method,
                 ..Default::default()
             });

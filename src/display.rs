@@ -76,7 +76,7 @@ where
 
         // IP
         if let Some(ip) = state.ip {
-            write!(&mut buf, "IP: {}", ip).unwrap();
+            write!(&mut buf, "IP: {ip}").unwrap();
         } else {
             write!(&mut buf, "IP: n/a").unwrap();
         }

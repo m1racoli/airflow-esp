@@ -4,7 +4,7 @@
 use airflow_esp::display::Display;
 use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
-use airflow_esp::{Event, State, EVENTS, STATE};
+use airflow_esp::{mk_static, Event, State, EVENTS, STATE};
 use embassy_executor::Spawner;
 use embassy_futures::select::{select, Either};
 use embassy_time::{Duration, Instant, Timer};
@@ -13,7 +13,9 @@ use esp_hal::clock::CpuClock;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::rng::Rng;
 use esp_hal::timer::systimer::SystemTimer;
+use esp_hal::timer::timg::TimerGroup;
 use esp_hal::Blocking;
+use esp_wifi::EspWifiController;
 use log::info;
 
 extern crate alloc;
@@ -49,13 +51,16 @@ async fn main(spawner: Spawner) {
 
     // Wi-Fi
     let rng = Rng::new(peripherals.RNG);
-    let stack = init_wifi_stack(
-        spawner,
-        rng,
-        peripherals.TIMG0,
-        peripherals.RADIO_CLK,
-        peripherals.WIFI,
+    let timer_group: TimerGroup<_> = TimerGroup::new(peripherals.TIMG0);
+
+    let esp_wifi_ctrl = &*mk_static!(
+        EspWifiController<'static>,
+        esp_wifi::init(timer_group.timer0, rng).unwrap()
     );
+    // TODO can we move this back to the `init_wifi_stack` function?
+    let (controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, peripherals.WIFI).unwrap();
+
+    let stack = init_wifi_stack(spawner, rng, controller, interfaces);
     info!("Network stack initialized!");
 
     loop {
@@ -114,7 +119,7 @@ async fn render(mut display: Display<'static, Blocking>) {
     let mut state = receiver.get().await;
     match display.update(state) {
         Ok(_) => {}
-        Err(e) => info!("Failed to update display: {:?}", e),
+        Err(e) => info!("Failed to update display: {e:?}"),
     }
     loop {
         let remainder = Instant::now().as_millis() % 1000;
@@ -129,7 +134,7 @@ async fn render(mut display: Display<'static, Blocking>) {
         }
         match display.update(state) {
             Ok(_) => {}
-            Err(e) => info!("Failed to update display: {:?}", e),
+            Err(e) => info!("Failed to update display: {e:?}"),
         }
     }
 }
