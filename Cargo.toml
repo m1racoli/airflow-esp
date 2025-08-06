@@ -22,7 +22,7 @@ embassy-net = { version = "0.6.0", features = [
   "udp",
   "dns",
 ] }
-embassy-sync = "0.6.2"
+embassy-sync = "0.7.0"
 embassy-time = { version = "0.4.0", features = ["generic-queue-8"] }
 embedded-graphics = "0.8.1"
 embedded-io = "0.6.1"
@@ -58,7 +58,7 @@ smoltcp = { version = "0.12.0", default-features = false, features = [
   "socket-tcp",
   "socket-udp",
 ] }
-sntpc = { version = "0.5.2", default-features = false, features = ["embassy-socket"] }
+sntpc = { version = "0.6.0", default-features = false, features = ["embassy-socket"] }
 ssd1306 = "0.10.0"
 static_cell = { version = "2.1.1" }
 static-toml = "1.3.0"
