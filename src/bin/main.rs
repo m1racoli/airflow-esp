@@ -4,7 +4,7 @@
 use airflow_esp::display::Display;
 use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
-use airflow_esp::{EVENTS, Event, STATE, State, mk_static};
+use airflow_esp::{EVENTS, Event, IS_TIME_SET, STATE, State, mk_static};
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Instant, Timer};
@@ -83,6 +83,10 @@ async fn main(spawner: Spawner) {
     spawner.must_spawn(measure_time(stack));
     #[cfg(feature = "stats")]
     spawner.spawn(heap_stats()).ok();
+
+    info!("Waiting for time to be set...");
+    IS_TIME_SET.wait().await;
+    info!("Time set!");
 
     loop {
         Timer::after(Duration::from_secs(1)).await;
