@@ -1,7 +1,7 @@
-use crate::mk_static;
-use crate::Event;
 use crate::CONFIG;
 use crate::EVENTS;
+use crate::Event;
+use crate::mk_static;
 use embassy_executor::Spawner;
 use embassy_net::{Runner, Stack, StackResources};
 use embassy_time::{Duration, Timer};

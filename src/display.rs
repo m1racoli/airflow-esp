@@ -1,18 +1,17 @@
-use chrono::{DateTime, Utc};
+use airflow_common::datetime::TimeProvider;
 use core::fmt::Write;
 use display_interface::DisplayError;
-use embassy_time::{Duration, Instant};
 use embedded_graphics::{
     mono_font::{
-        ascii::{FONT_5X7, FONT_9X18_BOLD},
         MonoTextStyle, MonoTextStyleBuilder,
+        ascii::{FONT_5X7, FONT_9X18_BOLD},
     },
     pixelcolor::BinaryColor,
     prelude::*,
     text::{Alignment, Text},
 };
-use esp_hal::{i2c::master::I2c, DriverMode};
-use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
+use esp_hal::{DriverMode, i2c::master::I2c};
+use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
 
 use crate::State;
 
@@ -25,17 +24,19 @@ type DisplayType<'a, I> = Ssd1306<
     ssd1306::mode::BufferedGraphicsMode<DisplaySize128x64>,
 >;
 
-pub struct Display<'a, I: DriverMode> {
+pub struct Display<'a, I: DriverMode, T: TimeProvider> {
     display: DisplayType<'a, I>,
     text_style: MonoTextStyle<'a, BinaryColor>,
     text_style_big: MonoTextStyle<'a, BinaryColor>,
+    time_provider: T,
 }
 
-impl<'a, I> Display<'a, I>
+impl<'a, I, T> Display<'a, I, T>
 where
     I: DriverMode,
+    T: TimeProvider,
 {
-    pub fn init(i2c: I2c<'a, I>) -> Result<Display<'a, I>, DisplayError> {
+    pub fn init(i2c: I2c<'a, I>, time_provider: T) -> Result<Display<'a, I, T>, DisplayError> {
         // Initialize display
         let interface = I2CDisplayInterface::new(i2c);
         let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
@@ -57,6 +58,7 @@ where
             display,
             text_style,
             text_style_big,
+            time_provider,
         })
     }
 
@@ -84,15 +86,8 @@ where
         buf.clear();
 
         // Time
-        if let Some(ntp) = state.ntp {
-            let now = Instant::now();
-            let now_corrected = now + Duration::from_micros(ntp.offset as u64);
-            let dt =
-                DateTime::<Utc>::from_timestamp_micros(now_corrected.as_micros() as i64).unwrap();
-            write!(&mut buf, "Time: {}", dt.format("%Y-%m-%d %H:%M:%S")).unwrap();
-        } else {
-            write!(&mut buf, "Time: n/a").unwrap();
-        }
+        let dt = self.time_provider.now();
+        write!(&mut buf, "Time: {}", dt.format("%Y-%m-%d %H:%M:%S")).unwrap();
         _ = self.draw_text(&buf, y)?;
         buf.clear();
 

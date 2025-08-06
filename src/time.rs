@@ -1,16 +1,16 @@
 use core::net::{IpAddr, SocketAddr};
 
-use crate::{Event, CONFIG, EVENTS};
+use crate::{CONFIG, OFFSET};
 use embassy_net::{
-    udp::{PacketMetadata, UdpSocket},
     Stack,
+    udp::{PacketMetadata, UdpSocket},
 };
 use embassy_time::{Duration, Instant, Timer};
 use log::info;
 use smoltcp::wire::DnsQueryType;
 #[cfg(feature = "stats")]
 use sntpc::NtpResult;
-use sntpc::{get_time, NtpContext, NtpTimestampGenerator};
+use sntpc::{NtpContext, NtpTimestampGenerator, get_time};
 
 #[embassy_executor::task]
 pub async fn measure_time(stack: Stack<'static>) {
@@ -44,15 +44,18 @@ pub async fn measure_time(stack: Stack<'static>) {
     #[cfg(feature = "stats")]
     let mut first: Option<NtpResult> = None;
     let context = NtpContext::new(Timestamp::default());
+    let offset = OFFSET.sender();
 
     // the first request has some delay (around 500 ms)
     // warming up the socket
-    get_time(socket_addr, &socket, context).await.ok();
+    if let Ok(result) = get_time(socket_addr, &socket, context).await {
+        info!("{result:?}");
+    }
 
     loop {
         match get_time(socket_addr, &socket, context).await {
             Ok(result) => {
-                EVENTS.send(Event::Ntp(result)).await;
+                offset.send(result.offset);
                 info!("{result:?}");
                 #[cfg(feature = "stats")]
                 match first {
@@ -60,7 +63,9 @@ pub async fn measure_time(stack: Stack<'static>) {
                         let offset_diff = result.offset - first.offset;
                         let ts_diff = result.seconds as i64 - first.seconds as i64;
                         let relative_diff = offset_diff as f64 / (ts_diff * 1_000_000) as f64;
-                        info!("Drift: {offset_diff} micros after {ts_diff} seconds ({relative_diff:e} relative)");
+                        info!(
+                            "Drift: {offset_diff} micros after {ts_diff} seconds ({relative_diff:e} relative)"
+                        );
                     }
                     None => {
                         first = Some(result);

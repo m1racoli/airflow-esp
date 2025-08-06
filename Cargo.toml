@@ -11,7 +11,9 @@ name = "airflow-esp"
 path = "./src/bin/main.rs"
 
 [dependencies]
-chrono = { version = "0.4.41", default-features = false, features = ["serde", "alloc"] }
+airflow-common = { path = "../airflow-rs/airflow-common", default-features = false, features = [
+  "jwt-compact",
+] }
 critical-section = "1.2.0"
 display-interface = "0.5.0"
 embassy-executor = { version = "0.7.0", features = ["task-arena-size-20480"] }

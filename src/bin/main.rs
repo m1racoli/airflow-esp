@@ -1,20 +1,22 @@
 #![no_std]
 #![no_main]
 
+use airflow_esp::airflow::OffsetTimeProvider;
 use airflow_esp::display::Display;
 use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
-use airflow_esp::{mk_static, Event, State, EVENTS, STATE};
+use airflow_esp::{EVENTS, Event, OFFSET, STATE, State, mk_static};
 use embassy_executor::Spawner;
-use embassy_futures::select::{select, Either};
+use embassy_futures::select::{Either, select};
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
+use esp_hal::Blocking;
 use esp_hal::clock::CpuClock;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::rng::Rng;
 use esp_hal::timer::systimer::SystemTimer;
 use esp_hal::timer::timg::TimerGroup;
-use esp_hal::Blocking;
 use esp_wifi::EspWifiController;
 use log::info;
 
@@ -31,12 +33,15 @@ async fn main(spawner: Spawner) {
     spawner.spawn(event_handler()).ok();
     info!("Event handler initialized!");
 
+    // Time provider
+    let time_provider = OffsetTimeProvider::new(&OFFSET);
+
     // Display
     let i2c = I2c::new(peripherals.I2C0, Config::default())
         .unwrap()
         .with_sda(peripherals.GPIO0)
         .with_scl(peripherals.GPIO1);
-    let display = Display::init(i2c).expect("Failed to initialize display");
+    let display = Display::init(i2c, time_provider.clone()).expect("Failed to initialize display");
     spawner.spawn(render(display)).ok();
     info!("Display initialized!");
 
@@ -104,16 +109,19 @@ async fn event_handler() {
             Event::Ip(ip) => {
                 state.ip = ip;
             }
-            Event::Ntp(ntp_result) => {
-                state.ntp = Some(ntp_result);
-            }
         }
         sender.send(state);
     }
 }
 
 #[embassy_executor::task]
-async fn render(mut display: Display<'static, Blocking>) {
+async fn render(
+    mut display: Display<
+        'static,
+        Blocking,
+        OffsetTimeProvider<'static, CriticalSectionRawMutex, 0>,
+    >,
+) {
     let mut receiver = STATE.receiver().unwrap();
 
     let mut state = receiver.get().await;

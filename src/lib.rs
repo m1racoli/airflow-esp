@@ -13,14 +13,15 @@ macro_rules! mk_static {
 
 use core::net::Ipv4Addr;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, watch::Watch};
-use sntpc::NtpResult;
 
+pub mod airflow;
 pub mod display;
 pub mod time;
 pub mod wifi;
 
 pub static EVENTS: Channel<CriticalSectionRawMutex, Event, 8> = Channel::new();
 pub static STATE: Watch<CriticalSectionRawMutex, State, 1> = Watch::new();
+pub static OFFSET: Watch<CriticalSectionRawMutex, i64, 0> = Watch::new_with(0);
 
 static_toml::static_toml! {
     pub const CONFIG = include_toml!("config.toml");
@@ -30,12 +31,10 @@ static_toml::static_toml! {
 pub enum Event {
     Connection(bool),
     Ip(Option<Ipv4Addr>),
-    Ntp(NtpResult),
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct State {
     pub connected: bool,
     pub ip: Option<core::net::Ipv4Addr>,
-    pub ntp: Option<NtpResult>,
 }
