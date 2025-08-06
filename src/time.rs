@@ -1,6 +1,6 @@
 use core::net::{IpAddr, SocketAddr};
 
-use crate::{CONFIG, IS_TIME_SET, OFFSET};
+use crate::{CONFIG, OFFSET};
 use embassy_net::{
     Stack,
     udp::{PacketMetadata, UdpSocket},
@@ -56,7 +56,6 @@ pub async fn measure_time(stack: Stack<'static>) {
         match get_time(socket_addr, &socket, context).await {
             Ok(result) => {
                 offset.send(result.offset);
-                IS_TIME_SET.signal(());
                 info!("{result:?}");
                 #[cfg(feature = "stats")]
                 match first {

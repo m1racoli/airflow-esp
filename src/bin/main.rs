@@ -6,7 +6,7 @@ use airflow_common::utils::SecretString;
 use airflow_esp::display::Display;
 use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
-use airflow_esp::{EVENTS, Event, IS_TIME_SET, STATE, State, TIME_PROVIDER, mk_static};
+use airflow_esp::{EVENTS, Event, OFFSET, STATE, State, TIME_PROVIDER, mk_static};
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Instant, Timer};
@@ -87,7 +87,11 @@ async fn main(spawner: Spawner) {
     spawner.spawn(heap_stats()).ok();
 
     info!("Waiting for time to be set...");
-    IS_TIME_SET.wait().await;
+    OFFSET
+        .receiver()
+        .expect("Failed to get OFFSET receiver")
+        .get()
+        .await;
     info!("Time set!");
 
     let secret = SecretString::from("test123");

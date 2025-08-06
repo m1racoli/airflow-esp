@@ -14,7 +14,7 @@ macro_rules! mk_static {
 use core::net::Ipv4Addr;
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, lazy_lock::LazyLock,
-    signal::Signal, watch::Watch,
+    watch::Watch,
 };
 
 use crate::airflow::OffsetTimeProvider;
@@ -26,10 +26,9 @@ pub mod wifi;
 
 pub static EVENTS: Channel<CriticalSectionRawMutex, Event, 8> = Channel::new();
 pub static STATE: Watch<CriticalSectionRawMutex, State, 1> = Watch::new();
-pub static OFFSET: Watch<CriticalSectionRawMutex, i64, 0> = Watch::new_with(0);
-pub static TIME_PROVIDER: LazyLock<OffsetTimeProvider<'static, CriticalSectionRawMutex, 0>> =
+pub static OFFSET: Watch<CriticalSectionRawMutex, i64, 1> = Watch::new();
+pub static TIME_PROVIDER: LazyLock<OffsetTimeProvider<'static, CriticalSectionRawMutex, 1>> =
     LazyLock::new(|| OffsetTimeProvider::new(&OFFSET));
-pub static IS_TIME_SET: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
 static_toml::static_toml! {
     pub const CONFIG = include_toml!("config.toml");
