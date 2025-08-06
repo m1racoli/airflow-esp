@@ -13,7 +13,7 @@ use embedded_graphics::{
 use esp_hal::{DriverMode, i2c::master::I2c};
 use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
 
-use crate::State;
+use crate::{State, TIME_PROVIDER};
 
 static DELTA_Y: i32 = 9;
 static V_SPACE: i32 = 1;
@@ -24,19 +24,17 @@ type DisplayType<'a, I> = Ssd1306<
     ssd1306::mode::BufferedGraphicsMode<DisplaySize128x64>,
 >;
 
-pub struct Display<'a, I: DriverMode, T: TimeProvider> {
+pub struct Display<'a, I: DriverMode> {
     display: DisplayType<'a, I>,
     text_style: MonoTextStyle<'a, BinaryColor>,
     text_style_big: MonoTextStyle<'a, BinaryColor>,
-    time_provider: T,
 }
 
-impl<'a, I, T> Display<'a, I, T>
+impl<'a, I> Display<'a, I>
 where
     I: DriverMode,
-    T: TimeProvider,
 {
-    pub fn init(i2c: I2c<'a, I>, time_provider: T) -> Result<Display<'a, I, T>, DisplayError> {
+    pub fn init(i2c: I2c<'a, I>) -> Result<Display<'a, I>, DisplayError> {
         // Initialize display
         let interface = I2CDisplayInterface::new(i2c);
         let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
@@ -58,7 +56,6 @@ where
             display,
             text_style,
             text_style_big,
-            time_provider,
         })
     }
 
@@ -86,7 +83,7 @@ where
         buf.clear();
 
         // Time
-        let dt = self.time_provider.now();
+        let dt = TIME_PROVIDER.get().now();
         write!(&mut buf, "Time: {}", dt.format("%Y-%m-%d %H:%M:%S")).unwrap();
         _ = self.draw_text(&buf, y)?;
         buf.clear();
