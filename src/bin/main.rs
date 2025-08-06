@@ -1,10 +1,12 @@
 #![no_std]
 #![no_main]
 
+use airflow_common::api::{JWTCompactJWTGenerator, JWTGenerator};
+use airflow_common::utils::SecretString;
 use airflow_esp::display::Display;
 use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
-use airflow_esp::{EVENTS, Event, IS_TIME_SET, STATE, State, mk_static};
+use airflow_esp::{EVENTS, Event, IS_TIME_SET, STATE, State, TIME_PROVIDER, mk_static};
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Instant, Timer};
@@ -87,6 +89,14 @@ async fn main(spawner: Spawner) {
     info!("Waiting for time to be set...");
     IS_TIME_SET.wait().await;
     info!("Time set!");
+
+    let secret = SecretString::from("test123");
+    let jwt_generator = JWTCompactJWTGenerator::new(secret, "api", TIME_PROVIDER.get().clone())
+        .with_issuer("airflow-esp");
+    let token = jwt_generator
+        .generate("/test123")
+        .expect("Failed to generate JWT");
+    info!("Generated JWT: {token}");
 
     loop {
         Timer::after(Duration::from_secs(1)).await;
