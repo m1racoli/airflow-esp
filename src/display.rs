@@ -2,6 +2,7 @@ use airflow_common::datetime::TimeProvider;
 use core::fmt::Write;
 use display_interface::DisplayError;
 use embedded_graphics::{
+    image::Image,
     mono_font::{
         MonoTextStyle, MonoTextStyleBuilder,
         ascii::{FONT_5X7, FONT_9X18_BOLD},
@@ -10,6 +11,8 @@ use embedded_graphics::{
     prelude::*,
     text::{Alignment, Text},
 };
+use embedded_iconoir::icons::size16px::connectivity::{PrivateWifi, WifiOff};
+use embedded_iconoir::prelude::*;
 use esp_hal::{DriverMode, i2c::master::I2c};
 use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
 
@@ -17,6 +20,8 @@ use crate::{State, TIME_PROVIDER, WifiStatus};
 
 static DELTA_Y: i32 = 9;
 static V_SPACE: i32 = 1;
+const DIM_X: u8 = 128;
+const ICON_SIZE: u8 = 16;
 
 type DisplayType<'a, I> = Ssd1306<
     I2CInterface<I2c<'a, I>>,
@@ -67,15 +72,23 @@ where
         y = self.draw_title("Airflow ESP", y)?;
 
         // Wifi
+        let wifi_pos = Point::new(DIM_X as i32 - ICON_SIZE as i32, 0);
         match state.wifi {
             WifiStatus::Disconnected => {
-                y = self.draw_text("Wifi: Disconnected", y)?;
+                let wifi = WifiOff::new(BinaryColor::On);
+                let image = Image::new(&wifi, wifi_pos);
+                image.draw(&mut self.display)?;
             }
             WifiStatus::Connecting => {
-                y = self.draw_text("Wifi: Connecting...", y)?;
+                // TODO alternative for connecting status. animation?
+                let wifi = WifiOff::new(BinaryColor::On);
+                let image = Image::new(&wifi, wifi_pos);
+                image.draw(&mut self.display)?;
             }
             WifiStatus::Connected => {
-                y = self.draw_text("Wifi: Connected", y)?;
+                let wifi = PrivateWifi::new(BinaryColor::On);
+                let image = Image::new(&wifi, wifi_pos);
+                image.draw(&mut self.display)?;
             }
         }
 
