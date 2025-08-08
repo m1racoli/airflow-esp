@@ -11,6 +11,7 @@ use embedded_graphics::{
     prelude::*,
     text::{Alignment, Text},
 };
+use embedded_iconoir::icons::size16px::communication::Internet;
 use embedded_iconoir::icons::size16px::connectivity::{PrivateWifi, WifiOff};
 use embedded_iconoir::prelude::*;
 use esp_hal::{DriverMode, i2c::master::I2c};
@@ -69,10 +70,10 @@ where
         let mut buf: heapless::String<64> = heapless::String::new();
 
         // title
-        y = self.draw_title("Airflow ESP", y)?;
+        y = self.draw_title("Airflow", y)?;
 
         // Wifi
-        let wifi_pos = Point::new(DIM_X as i32 - ICON_SIZE as i32, 0);
+        let wifi_pos = Point::new(DIM_X as i32 - ICON_SIZE as i32 + V_SPACE, 0);
         match state.wifi {
             WifiStatus::Disconnected => {
                 let wifi = WifiOff::new(BinaryColor::On);
@@ -93,17 +94,16 @@ where
         }
 
         // IP
-        if let Some(ip) = state.ip {
-            write!(&mut buf, "IP: {ip}").unwrap();
-        } else {
-            write!(&mut buf, "IP: n/a").unwrap();
+        let ip_pos = Point::new(DIM_X as i32 - (ICON_SIZE * 2) as i32, 0);
+        if state.ip.is_some() {
+            let internet = Internet::new(BinaryColor::On);
+            let image = Image::new(&internet, ip_pos);
+            image.draw(&mut self.display)?;
         }
-        y = self.draw_text(&buf, y)?;
-        buf.clear();
 
         // Time
         let dt = TIME_PROVIDER.get().now();
-        write!(&mut buf, "Time: {}", dt.format("%Y-%m-%d %H:%M:%S")).unwrap();
+        write!(&mut buf, "{}", dt.format("%Y-%m-%d %H:%M:%S")).unwrap();
         _ = self.draw_text(&buf, y)?;
         buf.clear();
 
