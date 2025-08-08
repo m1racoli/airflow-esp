@@ -1,3 +1,4 @@
+#[cfg(not(feature = "wokwi"))]
 use crate::CONFIG;
 use crate::EVENTS;
 use crate::Event;
