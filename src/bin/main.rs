@@ -116,8 +116,8 @@ async fn event_handler() {
     loop {
         let event = EVENTS.receive().await;
         match event {
-            Event::Connection(connected) => {
-                state.connected = connected;
+            Event::Wifi(status) => {
+                state.wifi = status;
             }
             Event::Ip(ip) => {
                 state.ip = ip;

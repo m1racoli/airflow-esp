@@ -13,7 +13,7 @@ use embedded_graphics::{
 use esp_hal::{DriverMode, i2c::master::I2c};
 use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
 
-use crate::{State, TIME_PROVIDER};
+use crate::{State, TIME_PROVIDER, WifiStatus};
 
 static DELTA_Y: i32 = 9;
 static V_SPACE: i32 = 1;
@@ -67,10 +67,16 @@ where
         y = self.draw_title("Airflow ESP", y)?;
 
         // Wifi
-        if state.connected {
-            y = self.draw_text("Wifi: Connected", y)?;
-        } else {
-            y = self.draw_text("Wifi: Disconnected", y)?;
+        match state.wifi {
+            WifiStatus::Disconnected => {
+                y = self.draw_text("Wifi: Disconnected", y)?;
+            }
+            WifiStatus::Connecting => {
+                y = self.draw_text("Wifi: Connecting...", y)?;
+            }
+            WifiStatus::Connected => {
+                y = self.draw_text("Wifi: Connected", y)?;
+            }
         }
 
         // IP

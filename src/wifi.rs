@@ -2,6 +2,7 @@
 use crate::CONFIG;
 use crate::EVENTS;
 use crate::Event;
+use crate::WifiStatus;
 use crate::mk_static;
 use embassy_executor::Spawner;
 use embassy_net::{Runner, Stack, StackResources};
@@ -50,7 +51,7 @@ async fn connection(mut controller: WifiController<'static>) {
         if esp_wifi::wifi::wifi_state() == WifiState::StaConnected {
             // wait until we're no longer connected
             controller.wait_for_event(WifiEvent::StaDisconnected).await;
-            sender.send(Event::Connection(false)).await;
+            sender.send(Event::Wifi(WifiStatus::Disconnected)).await;
             info!("Wifi disconnected!");
             Timer::after(Duration::from_millis(5000)).await
         }
@@ -75,13 +76,13 @@ async fn connection(mut controller: WifiController<'static>) {
             });
             controller.set_configuration(&client_config).unwrap();
             controller.start_async().await.unwrap();
-            info!("Wifi started!");
+            sender.send(Event::Wifi(WifiStatus::Connecting)).await;
+            info!("Connecting to {ssid} ...");
         }
-        info!("Connecting to {ssid} ...");
 
         match controller.connect_async().await {
             Ok(_) => {
-                sender.send(Event::Connection(true)).await;
+                sender.send(Event::Wifi(WifiStatus::Connected)).await;
                 info!("Wifi connected!")
             }
             Err(e) => {

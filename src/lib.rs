@@ -36,12 +36,20 @@ static_toml::static_toml! {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Event {
-    Connection(bool),
+    Wifi(WifiStatus),
     Ip(Option<Ipv4Addr>),
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct State {
-    pub connected: bool,
+    pub wifi: WifiStatus,
     pub ip: Option<core::net::Ipv4Addr>,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub enum WifiStatus {
+    #[default]
+    Disconnected,
+    Connecting,
+    Connected,
 }
