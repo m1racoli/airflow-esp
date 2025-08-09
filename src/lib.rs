@@ -17,7 +17,7 @@ use embassy_sync::{
     watch::Watch,
 };
 
-use crate::airflow::OffsetTimeProvider;
+use crate::airflow::OffsetWatchTimeProvider;
 
 pub mod airflow;
 pub mod display;
@@ -27,8 +27,8 @@ pub mod wifi;
 pub static EVENTS: Channel<CriticalSectionRawMutex, Event, 8> = Channel::new();
 pub static STATE: Watch<CriticalSectionRawMutex, State, 1> = Watch::new();
 pub static OFFSET: Watch<CriticalSectionRawMutex, i64, 1> = Watch::new();
-pub static TIME_PROVIDER: LazyLock<OffsetTimeProvider<'static, CriticalSectionRawMutex, 1>> =
-    LazyLock::new(|| OffsetTimeProvider::new(&OFFSET));
+pub static TIME_PROVIDER: LazyLock<OffsetWatchTimeProvider<'static, CriticalSectionRawMutex, 1>> =
+    LazyLock::new(|| OffsetWatchTimeProvider::new(&OFFSET));
 
 #[cfg(not(feature = "wokwi"))]
 static_toml::static_toml! {

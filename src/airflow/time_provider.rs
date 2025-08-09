@@ -2,15 +2,16 @@ use airflow_common::datetime::{TimeProvider, UtcDateTime};
 use embassy_sync::{blocking_mutex::raw::RawMutex, watch::Watch};
 use embassy_time::{Duration, Instant};
 
-// #[derive(Clone)]
-pub struct OffsetTimeProvider<'a, M, const N: usize>
+/// A time provider that uses a [Watch] to provide the current time with an offset.
+/// The offset is applied to the time since boot and needs to provided via the watch.
+pub struct OffsetWatchTimeProvider<'a, M, const N: usize>
 where
     M: RawMutex,
 {
     watch: &'a Watch<M, i64, N>,
 }
 
-impl<'a, M, const N: usize> OffsetTimeProvider<'a, M, N>
+impl<'a, M, const N: usize> OffsetWatchTimeProvider<'a, M, N>
 where
     M: RawMutex,
 {
@@ -19,7 +20,7 @@ where
     }
 }
 
-impl<'a, M, const N: usize> TimeProvider for OffsetTimeProvider<'a, M, N>
+impl<'a, M, const N: usize> TimeProvider for OffsetWatchTimeProvider<'a, M, N>
 where
     M: RawMutex,
 {
@@ -31,7 +32,7 @@ where
     }
 }
 
-impl<'a, M, const N: usize> Clone for OffsetTimeProvider<'a, M, N>
+impl<'a, M, const N: usize> Clone for OffsetWatchTimeProvider<'a, M, N>
 where
     M: RawMutex,
 {
