@@ -72,6 +72,9 @@ static-toml = "1.3.0"
 # For debug builds always builds with some optimization
 opt-level = "s"
 
+[profile.wokwi]
+inherits = "dev"
+
 [profile.release]
 codegen-units = 1        # LLVM can perform better optimizations using a single thread
 debug = 2
