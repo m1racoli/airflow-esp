@@ -1,0 +1,6 @@
+[wifi]
+ssid = "Wokwi-GUEST"
+password = ""
+
+[ntp]
+server = "pool.ntp.org"

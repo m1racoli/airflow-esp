@@ -1,4 +1,3 @@
-#[cfg(not(feature = "wokwi"))]
 use crate::CONFIG;
 use crate::EVENTS;
 use crate::Event;
@@ -56,10 +55,7 @@ async fn connection(mut controller: WifiController<'static>) {
             Timer::after(Duration::from_millis(5000)).await
         }
 
-        #[cfg(not(feature = "wokwi"))]
         let (ssid, password) = { (CONFIG.wifi.ssid, CONFIG.wifi.password) };
-        #[cfg(feature = "wokwi")]
-        let (ssid, password) = { ("Wokwi-GUEST", "") };
 
         let auth_method = if password.is_empty() {
             AuthMethod::None

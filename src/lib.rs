@@ -30,8 +30,13 @@ pub static OFFSET: Watch<CriticalSectionRawMutex, i64, 1> = Watch::new();
 pub static TIME_PROVIDER: LazyLock<OffsetTimeProvider<'static, CriticalSectionRawMutex, 1>> =
     LazyLock::new(|| OffsetTimeProvider::new(&OFFSET));
 
+#[cfg(not(feature = "wokwi"))]
 static_toml::static_toml! {
     pub const CONFIG = include_toml!("config.toml");
+}
+#[cfg(feature = "wokwi")]
+static_toml::static_toml! {
+    pub const CONFIG = include_toml!("config.wokwi.toml");
 }
 
 #[derive(Debug, Clone, Copy)]
