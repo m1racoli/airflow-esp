@@ -4,3 +4,11 @@ password = ""
 
 [ntp]
 server = "pool.ntp.org"
+
+[airflow.api_auth]
+jwt_secret = "rEVfqc5f8WQDLCJcrKKKtQ=="
+
+[airflow.edge]
+api_url = "http://host.wokwi.internal:28080/edge_worker/v1"
+heartbeat_interval = 30
+job_poll_interval = 5
