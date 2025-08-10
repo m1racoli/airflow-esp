@@ -40,6 +40,8 @@ pub async fn measure_time(stack: Stack<'static>) {
     }
 
     let addr: IpAddr = ntp_address[0].into();
+    info!("NTP server resolved to: {}", addr);
+
     let socket_addr = SocketAddr::new(addr, 123);
     #[cfg(feature = "stats")]
     let mut first: Option<NtpResult> = None;
