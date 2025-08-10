@@ -3,11 +3,11 @@ use core::net::{IpAddr, SocketAddr};
 use crate::{CONFIG, OFFSET};
 use embassy_net::{
     Stack,
+    dns::DnsQueryType,
     udp::{PacketMetadata, UdpSocket},
 };
 use embassy_time::{Duration, Instant, Timer};
 use log::info;
-use smoltcp::wire::DnsQueryType;
 #[cfg(feature = "stats")]
 use sntpc::NtpResult;
 use sntpc::{NtpContext, NtpTimestampGenerator, get_time};

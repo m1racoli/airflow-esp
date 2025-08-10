@@ -54,18 +54,6 @@ log = { version = "0.4.21" }
 reqwless = { git = "https://github.com/drogue-iot/reqwless.git", features = ["alloc", "log"] }
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-smoltcp = { version = "0.12.0", default-features = false, features = [
-  "medium-ethernet",
-  "multicast",
-  "proto-dhcpv4",
-  "proto-dns",
-  "proto-ipv4",
-  "socket-dns",
-  "socket-icmp",
-  "socket-raw",
-  "socket-tcp",
-  "socket-udp",
-] }
 sntpc = { version = "0.6.0", default-features = false, features = ["embassy-socket"] }
 ssd1306 = "0.10.0"
 static_cell = { version = "2.1.1" }

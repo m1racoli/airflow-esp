@@ -88,7 +88,6 @@ dependencies = [
  "reqwless",
  "serde",
  "serde_json",
- "smoltcp",
  "sntpc",
  "ssd1306",
  "static-toml",
