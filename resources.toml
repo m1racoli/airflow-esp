@@ -2,4 +2,10 @@
 rx_buf_size = 4096
 
 [stack]
-num_sockets = 3
+num_sockets = 4
+
+[tcp]
+num_connections = 1
+rx_buf_size = 1024
+tx_buf_size = 1024
+timeout = 10

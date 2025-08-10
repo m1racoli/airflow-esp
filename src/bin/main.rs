@@ -1,14 +1,20 @@
 #![no_std]
 #![no_main]
 
-use airflow_common::api::{JWTCompactJWTGenerator, JWTGenerator};
+use airflow_common::api::JWTCompactJWTGenerator;
 use airflow_common::utils::SecretString;
+use airflow_edge_sdk::api::LocalEdgeApiClient;
+use airflow_esp::airflow::ReqwlessEdgeApiClient;
 use airflow_esp::display::Display;
 use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
-use airflow_esp::{CONFIG, EVENTS, Event, OFFSET, STATE, State, TIME_PROVIDER, mk_static};
+use airflow_esp::{
+    CONFIG, EVENTS, Event, OFFSET, RESOURCES, STATE, State, TIME_PROVIDER, mk_static,
+};
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
+use embassy_net::dns::DnsSocket;
+use embassy_net::tcp::client::{TcpClient, TcpClientState};
 use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
 use esp_hal::Blocking;
@@ -21,6 +27,10 @@ use esp_wifi::EspWifiController;
 use log::info;
 
 extern crate alloc;
+
+const NUM_TCP_CONNECTIONS: usize = RESOURCES.tcp.num_connections as usize;
+const TCP_RX_BUF_SIZE: usize = RESOURCES.tcp.rx_buf_size as usize;
+const TCP_TX_BUF_SIZE: usize = RESOURCES.tcp.tx_buf_size as usize;
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
@@ -97,10 +107,24 @@ async fn main(spawner: Spawner) {
     let secret: SecretString = CONFIG.airflow.api_auth.jwt_secret.into();
     let jwt_generator = JWTCompactJWTGenerator::new(secret, "api", TIME_PROVIDER.get().clone())
         .with_issuer("airflow-esp");
-    let token = jwt_generator
-        .generate("/test123")
-        .expect("Failed to generate JWT");
-    info!("Generated JWT: {token}");
+
+    let tcp_client_state: TcpClientState<NUM_TCP_CONNECTIONS, TCP_RX_BUF_SIZE, TCP_TX_BUF_SIZE> =
+        TcpClientState::new();
+    let mut tcp_client = TcpClient::new(stack, &tcp_client_state);
+    tcp_client.set_timeout(Some(Duration::from_secs(RESOURCES.tcp.timeout as u64)));
+    let dns_socket = DnsSocket::new(stack);
+
+    let mut edge_api_client = ReqwlessEdgeApiClient::new(
+        &tcp_client,
+        &dns_socket,
+        CONFIG.airflow.edge.api_url,
+        jwt_generator,
+    );
+
+    match edge_api_client.health().await {
+        Ok(status) => info!("Edge API health status: {:?}", status),
+        Err(e) => info!("Failed to check edge API health: {}", e),
+    }
 
     loop {
         Timer::after(Duration::from_secs(1)).await;
