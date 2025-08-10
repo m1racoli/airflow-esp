@@ -35,10 +35,12 @@ pub static TIME_PROVIDER: LazyLock<OffsetWatchTimeProvider<'static, CriticalSect
 #[cfg(not(feature = "wokwi"))]
 static_toml::static_toml! {
     pub static CONFIG = include_toml!("config.toml");
+    pub const RESOURCES = include_toml!("resources.toml");
 }
 #[cfg(feature = "wokwi")]
 static_toml::static_toml! {
     pub static CONFIG = include_toml!("config.wokwi.toml");
+    pub const RESOURCES = include_toml!("resources.toml");
 }
 
 #[derive(Debug, Clone, Copy)]

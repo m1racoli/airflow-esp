@@ -1,0 +1,5 @@
+[http]
+rx_buf_size = 4096
+
+[stack]
+num_sockets = 3

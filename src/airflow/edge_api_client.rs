@@ -16,6 +16,10 @@ use reqwless::request::{Method, RequestBody, RequestBuilder};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+use crate::RESOURCES;
+
+const RX_BUF_SIZE: usize = RESOURCES.http.rx_buf_size as usize;
+
 #[derive(thiserror::Error, Debug)]
 pub enum ReqwlessEdgeApiError<J: Error> {
     #[error("{0:?}")]
@@ -38,7 +42,7 @@ pub struct ReqwlessEdgeApiClient<
     client: HttpClient<'a, TcpClient<'a, N, TX, RX>, DnsSocket<'a>>,
     base_url: String,
     jwt_generator: J,
-    rx_buf: [u8; 4096], // TODO configure buffer size
+    rx_buf: [u8; RX_BUF_SIZE],
     _tcp_client: &'a TcpClient<'a, N, TX, RX>,
     _dns_socket: &'a DnsSocket<'a>,
 }
@@ -58,7 +62,7 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize>
             client,
             base_url: base_url.into(),
             jwt_generator,
-            rx_buf: [0; 4096],
+            rx_buf: [0; _],
             _tcp_client: tcp_client,
             _dns_socket: dns_socket,
         }
@@ -309,7 +313,7 @@ impl<'a, J: JWTGenerator + Clone, const N: usize, const TX: usize, const RX: usi
             client,
             base_url: self.base_url.clone(),
             jwt_generator: self.jwt_generator.clone(),
-            rx_buf: [0; 4096],
+            rx_buf: [0; _],
             _tcp_client: self._tcp_client,
             _dns_socket: self._dns_socket,
         }

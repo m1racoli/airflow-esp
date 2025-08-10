@@ -1,6 +1,7 @@
 use crate::CONFIG;
 use crate::EVENTS;
 use crate::Event;
+use crate::RESOURCES;
 use crate::WifiStatus;
 use crate::mk_static;
 use embassy_executor::Spawner;
@@ -17,6 +18,8 @@ use esp_wifi::{
 };
 use log::info;
 
+const NUM_SOCKETS: usize = RESOURCES.stack.num_sockets as usize;
+
 pub fn init_wifi_stack(
     spawner: Spawner,
     mut rng: Rng,
@@ -32,7 +35,7 @@ pub fn init_wifi_stack(
     let (stack, runner) = embassy_net::new(
         wifi_interface,
         config,
-        mk_static!(StackResources<3>, StackResources::<3>::new()),
+        mk_static!(StackResources<NUM_SOCKETS>, StackResources::<_>::new()),
         seed,
     );
 
