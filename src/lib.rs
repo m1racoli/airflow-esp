@@ -33,6 +33,11 @@ pub static TIME_PROVIDER: LazyLock<OffsetWatchTimeProvider<'static, CriticalSect
     LazyLock::new(|| OffsetWatchTimeProvider::new(&OFFSET));
 
 #[cfg(not(feature = "wokwi"))]
+pub static HOSTNAME: &str = "airflow-esp";
+#[cfg(feature = "wokwi")]
+pub static HOSTNAME: &str = "airflow-esp-wokwi";
+
+#[cfg(not(feature = "wokwi"))]
 static_toml::static_toml! {
     pub static CONFIG = include_toml!("config.toml");
     pub const RESOURCES = include_toml!("resources.toml");

@@ -1,10 +1,12 @@
 use crate::CONFIG;
 use crate::EVENTS;
 use crate::Event;
+use crate::HOSTNAME;
 use crate::RESOURCES;
 use crate::WifiStatus;
 use crate::mk_static;
 use embassy_executor::Spawner;
+use embassy_net::DhcpConfig;
 use embassy_net::{Runner, Stack, StackResources};
 use embassy_time::{Duration, Timer};
 use esp_hal::rng::Rng;
@@ -29,7 +31,9 @@ pub fn init_wifi_stack(
     controller.set_power_saving(PowerSaveMode::Minimum).unwrap();
 
     let wifi_interface = interfaces.sta;
-    let config = embassy_net::Config::dhcpv4(Default::default());
+    let mut dhcp_config: DhcpConfig = Default::default();
+    dhcp_config.hostname = Some(HOSTNAME.try_into().unwrap());
+    let config = embassy_net::Config::dhcpv4(dhcp_config);
     let seed = (rng.random() as u64) << 32 | rng.random() as u64;
 
     let (stack, runner) = embassy_net::new(
