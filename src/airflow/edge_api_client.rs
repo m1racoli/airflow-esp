@@ -42,7 +42,6 @@ pub struct ReqwlessEdgeApiClient<
     client: HttpClient<'a, TcpClient<'a, N, TX, RX>, DnsSocket<'a>>,
     base_url: String,
     jwt_generator: J,
-    rx_buf: [u8; RX_BUF_SIZE],
     _tcp_client: &'a TcpClient<'a, N, TX, RX>,
     _dns_socket: &'a DnsSocket<'a>,
 }
@@ -62,7 +61,6 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize>
             client,
             base_url: base_url.into(),
             jwt_generator,
-            rx_buf: [0; _],
             _tcp_client: tcp_client,
             _dns_socket: dns_socket,
         }
@@ -74,12 +72,13 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize>
             .map_err(ReqwlessEdgeApiError::JWT)
     }
 
-    async fn request<T: RequestBody>(
+    async fn request<'buf, T: RequestBody>(
         &mut self,
+        rx_buf: &'buf mut [u8],
         method: Method,
         path: &str,
         body: Option<T>,
-    ) -> Result<&[u8], EdgeApiError<ReqwlessEdgeApiError<J::Error>>> {
+    ) -> Result<&'buf [u8], EdgeApiError<ReqwlessEdgeApiError<J::Error>>> {
         let url = format!("{}/{}", self.base_url, path);
         let token = self.token(path)?;
         let headers = [("accept", "application/json"), ("authorization", &token)];
@@ -98,7 +97,7 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize>
         let mut handle = handle.body(body);
 
         let response = handle
-            .send(&mut self.rx_buf)
+            .send(rx_buf)
             .await
             .map_err(ReqwlessEdgeApiError::Reqwless)?;
 
@@ -144,7 +143,10 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
 
     async fn health(&mut self) -> Result<HealthReturn, EdgeApiError<Self::Error>> {
         let path = "health";
-        let response_body = self.request::<()>(Method::GET, path, None).await?;
+        let mut rx_buf = [0; RX_BUF_SIZE];
+        let response_body = self
+            .request::<()>(&mut rx_buf, Method::GET, path, None)
+            .await?;
         Self::deserialize(response_body)
     }
 
@@ -164,8 +166,9 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             maintenance_comments: None,
         };
         let body = Self::serialize(&body)?;
+        let mut rx_buf = [0; RX_BUF_SIZE];
         let response_body = self
-            .request::<&[u8]>(Method::POST, &path, Some(&body))
+            .request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
             .await?;
         Self::deserialize(response_body)
     }
@@ -188,8 +191,9 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             maintenance_comments,
         };
         let body = Self::serialize(&body)?;
+        let mut rx_buf = [0; RX_BUF_SIZE];
         let response_body = self
-            .request::<&[u8]>(Method::PATCH, &path, Some(&body))
+            .request::<&[u8]>(&mut rx_buf, Method::PATCH, &path, Some(&body))
             .await?;
         Self::deserialize(response_body)
     }
@@ -206,8 +210,9 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             free_concurrency,
         };
         let body = Self::serialize(&body)?;
+        let mut rx_buf = [0; RX_BUF_SIZE];
         let response_body = self
-            .request::<&[u8]>(Method::POST, &path, Some(&body))
+            .request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
             .await?;
         Self::deserialize(response_body)
     }
@@ -226,7 +231,9 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             key.map_index(),
             state
         );
-        self.request::<()>(Method::PATCH, &path, None).await?;
+        let mut rx_buf = [0; RX_BUF_SIZE];
+        self.request::<()>(&mut rx_buf, Method::PATCH, &path, None)
+            .await?;
         Ok(())
     }
 
@@ -242,7 +249,10 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             key.try_number(),
             key.map_index(),
         );
-        let response_body = self.request::<()>(Method::GET, &path, None).await?;
+        let mut rx_buf = [0; RX_BUF_SIZE];
+        let response_body = self
+            .request::<()>(&mut rx_buf, Method::GET, &path, None)
+            .await?;
         Self::deserialize(response_body)
     }
 
@@ -265,7 +275,8 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             log_chunk_data,
         };
         let body = Self::serialize(&body)?;
-        self.request::<&[u8]>(Method::POST, &path, Some(&body))
+        let mut rx_buf = [0; RX_BUF_SIZE];
+        self.request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
             .await?;
         Ok(())
     }
@@ -308,14 +319,11 @@ impl<'a, J: JWTGenerator + Clone, const N: usize, const TX: usize, const RX: usi
     for ReqwlessEdgeApiClient<'a, J, N, TX, RX>
 {
     fn clone(&self) -> Self {
-        let client = HttpClient::new(self._tcp_client, self._dns_socket);
-        Self {
-            client,
-            base_url: self.base_url.clone(),
-            jwt_generator: self.jwt_generator.clone(),
-            rx_buf: [0; _],
-            _tcp_client: self._tcp_client,
-            _dns_socket: self._dns_socket,
-        }
+        Self::new(
+            self._tcp_client,
+            self._dns_socket,
+            &self.base_url,
+            self.jwt_generator.clone(),
+        )
     }
 }
