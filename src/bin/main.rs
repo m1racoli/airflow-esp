@@ -104,7 +104,7 @@ async fn main(spawner: Spawner) {
         .await;
     info!("Time set!");
 
-    let runtime = EmbassyRuntime::default();
+    let runtime = EmbassyRuntime::init(spawner);
     let secret: SecretString = CONFIG.airflow.api_auth.jwt_secret.into();
     let time_provider = TIME_PROVIDER.get().clone();
     let jwt_generator = JWTCompactJWTGenerator::new(secret, "api", time_provider.clone())

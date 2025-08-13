@@ -8,26 +8,26 @@ use airflow_edge_sdk::{
     api::EdgeJobFetched,
     worker::{IntercomMessage, LocalEdgeJob, LocalIntercom, LocalRuntime},
 };
+use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     channel::{Channel, Receiver, Sender},
+    signal::Signal,
 };
-use embassy_time::{Duration, Instant, Timer};
+use embassy_time::{Duration, Timer};
 use log::{debug, info};
 
 const INTERCOM_BUFFER_SIZE: usize = 4;
 static INTERCOM: Channel<CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE> =
     Channel::new();
+static LAUNCH_RESULT: Signal<CriticalSectionRawMutex, bool> = Signal::new();
 
-#[derive(Debug)]
 pub struct EmbassyEdgeJob {
     ti_key: TaskInstanceKey,
-    instant: Instant,
-    // handle: Option<JoinHandle<bool>>,
-    // result: bool,
     concurrency_slots: usize,
     abort: bool,
+    signal: &'static Signal<CriticalSectionRawMutex, bool>,
 }
 
 impl LocalEdgeJob for EmbassyEdgeJob {
@@ -40,38 +40,26 @@ impl LocalEdgeJob for EmbassyEdgeJob {
     }
 
     fn is_running(&self) -> bool {
-        // TODO
-        // match &self.handle {
-        //     Some(h) => !h.is_finished(),
-        //     None => false,
-        // }
-        !self.abort && self.instant + Duration::from_secs(15) > Instant::now()
+        !self.abort && !self.signal.signaled()
     }
 
     fn abort(&mut self) {
-        // TODO
-        // if let Some(h) = self.handle.take() {
-        //     h.abort();
-        // };
+        // TODO how to actually abort the embassy task?
+        // maybe we need select the future with another signal from the job
         self.abort = true;
     }
 
     async fn is_success(&mut self) -> bool {
-        // TODO
-        // if let Some(h) = self.handle.take() {
-        //     self.result = h.await.unwrap_or_default()
-        // };
-        // self.result
-        !self.abort
+        !self.abort && self.signal.wait().await
     }
 }
 
 #[derive(Clone)]
-pub struct EmbassyIntercom<'intercom>(
-    Sender<'intercom, CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE>,
+pub struct EmbassyIntercom(
+    Sender<'static, CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE>,
 );
 
-impl<'intercom> LocalIntercom for EmbassyIntercom<'intercom> {
+impl LocalIntercom for EmbassyIntercom {
     type SendError = Infallible;
 
     async fn send(&self, msg: IntercomMessage) -> Result<(), Self::SendError> {
@@ -80,23 +68,52 @@ impl<'intercom> LocalIntercom for EmbassyIntercom<'intercom> {
     }
 }
 
-pub struct EmbassyRuntime<'intercom> {
-    recv: Receiver<'intercom, CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE>,
-    send: Sender<'intercom, CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE>,
+#[embassy_executor::task(pool_size = 1)]
+async fn launch(
+    task: ExecuteTask,
+    intercom: EmbassyIntercom,
+    signal: &'static Signal<CriticalSectionRawMutex, bool>,
+) {
+    let key = task.ti().ti_key();
+    info!("Worker task launched for {key}");
+
+    // let client = match StdExecutionApiClient::new(EXECUTION_API_SERVER_URL, task.token()) {
+    //     Ok(client) => client,
+    //     Err(e) => {
+    //         error!("Failed to create execution API client: {}", e);
+    //         intercom.send(IntercomMessage::JobCompleted(key)).await.ok();
+    //         return false;
+    //     }
+    // };
+
+    // TODO: dag bag should coming from self or so
+    // let dag_bag = ExampleDagBag {};
+    // supervise::<ExampleDagBag>(task, client, dag_bag).await;
+    Timer::after(Duration::from_secs(9)).await; // Simulate task execution delay
+
+    intercom.send(IntercomMessage::JobCompleted(key)).await.ok();
+    signal.signal(true);
 }
 
-impl<'intercom> Default for EmbassyRuntime<'intercom> {
-    fn default() -> Self {
+pub struct EmbassyRuntime {
+    spawner: Spawner,
+    recv: Receiver<'static, CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE>,
+    send: Sender<'static, CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE>,
+}
+
+impl EmbassyRuntime {
+    pub fn init(spawner: Spawner) -> Self {
         EmbassyRuntime {
+            spawner,
             recv: INTERCOM.receiver(),
             send: INTERCOM.sender(),
         }
     }
 }
 
-impl<'intercom> LocalRuntime for EmbassyRuntime<'intercom> {
+impl LocalRuntime for EmbassyRuntime {
     type Job = EmbassyEdgeJob;
-    type Intercom = EmbassyIntercom<'intercom>;
+    type Intercom = EmbassyIntercom;
 
     async fn sleep(&mut self, duration: time::Duration) -> Option<IntercomMessage> {
         debug!("Sleeping for {} seconds", duration.as_secs());
@@ -116,39 +133,19 @@ impl<'intercom> LocalRuntime for EmbassyRuntime<'intercom> {
     }
 
     fn launch(&self, job: EdgeJobFetched) -> Self::Job {
-        async fn _launch<'intercom>(
-            task: ExecuteTask,
-            intercom: EmbassyIntercom<'intercom>,
-        ) -> bool {
-            let key = task.ti().ti_key();
-            info!("Worker task launched for {key}");
-
-            // let client = match StdExecutionApiClient::new(EXECUTION_API_SERVER_URL, task.token()) {
-            //     Ok(client) => client,
-            //     Err(e) => {
-            //         error!("Failed to create execution API client: {}", e);
-            //         intercom.send(IntercomMessage::JobCompleted(key)).await.ok();
-            //         return false;
-            //     }
-            // };
-
-            // TODO: dag bag should coming from self or so
-            // let dag_bag = ExampleDagBag {};
-            // supervise::<ExampleDagBag>(task, client, dag_bag).await;
-            intercom.send(IntercomMessage::JobCompleted(key)).await.ok();
-            true
-        }
         let ti_key = job.ti_key();
-        // let intercom = self.send.clone();
-        // let spawner = SendSpawner::for_current_executor().await;
-        // let handle = tokio::spawn(_launch(job.command, intercom));
+        let intercom = self.intercom();
+
+        LAUNCH_RESULT.reset();
+        self.spawner
+            .spawn(launch(job.command, intercom, &LAUNCH_RESULT))
+            .ok();
+
         EmbassyEdgeJob {
             ti_key,
-            // handle: Some(handle),
-            // result: false,
+            signal: &LAUNCH_RESULT,
             concurrency_slots: job.concurrency_slots,
             abort: false,
-            instant: Instant::now(),
         }
     }
 }
