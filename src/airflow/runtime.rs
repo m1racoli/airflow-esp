@@ -148,4 +148,8 @@ impl LocalRuntime for EmbassyRuntime {
             abort: false,
         }
     }
+
+    fn concurrency(&self) -> usize {
+        1
+    }
 }
