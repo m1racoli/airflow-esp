@@ -15,18 +15,19 @@ macro_rules! mk_static {
 
 use core::net::Ipv4Addr;
 use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, lazy_lock::LazyLock,
+    blocking_mutex::raw::CriticalSectionRawMutex, lazy_lock::LazyLock, pubsub::PubSubChannel,
     watch::Watch,
 };
 
 use crate::airflow::OffsetWatchTimeProvider;
 
 pub mod airflow;
+pub mod button;
 pub mod display;
 pub mod time;
 pub mod wifi;
 
-pub static EVENTS: Channel<CriticalSectionRawMutex, Event, 8> = Channel::new();
+pub static EVENTS: PubSubChannel<CriticalSectionRawMutex, Event, 8, 2, 2> = PubSubChannel::new();
 pub static STATE: Watch<CriticalSectionRawMutex, State, 1> = Watch::new();
 pub static OFFSET: Watch<CriticalSectionRawMutex, i64, 1> = Watch::new();
 pub static TIME_PROVIDER: LazyLock<OffsetWatchTimeProvider<'static, CriticalSectionRawMutex, 1>> =
@@ -52,6 +53,7 @@ static_toml::static_toml! {
 pub enum Event {
     Wifi(WifiStatus),
     Ip(Option<Ipv4Addr>),
+    ButtonPressed(button::Button),
 }
 
 #[derive(Debug, Default, Clone, Copy)]

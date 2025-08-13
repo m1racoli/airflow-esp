@@ -11,7 +11,16 @@
             "rotate": 90,
             "attrs": { "flashSize": "16" }
         },
-        { "type": "board-ssd1306", "id": "ssd1306", "top": 25, "left": 200, "attrs": { } }
+        { "type": "board-ssd1306", "id": "ssd1306", "top": 25, "left": 200, "attrs": { } },
+        {
+            "type": "wokwi-pushbutton-6mm",
+            "id": "btn1",
+            "top": 165,
+            "left": 44.8,
+            "rotate": 270,
+            "attrs": { "color": "red", "xray": "1", "bounce": "1" }
+        },
+        { "type": "wokwi-text", "id": "text1", "top": 163.2, "left": 0, "attrs": { "text": "Boot" } }
     ],
     "connections": [
         [ "esp:TX", "$serialMonitor:RX", "", [ ] ],
@@ -19,7 +28,9 @@
         [ "esp:5V.2", "ssd1306:VCC", "red", [ "v-28.8", "h266.82" ] ],
         [ "ssd1306:SDA", "esp:0", "green", [ "v-12.26", "h-234.2" ] ],
         [ "ssd1306:SCL", "esp:1", "green", [ "v-21.86", "h-233.97" ] ],
-        [ "esp:GND.5", "ssd1306:GND", "black", [ "v-38.4", "h266.97" ] ]
+        [ "esp:GND.5", "ssd1306:GND", "black", [ "v-38.4", "h266.97" ] ],
+        [ "esp:GND.8", "btn1:1.r", "black", [ "v0" ] ],
+        [ "esp:9", "btn1:2.r", "green", [ "v0" ] ]
     ],
     "serialMonitor": { "display": "terminal", "convertEol": true },
     "dependencies": { }

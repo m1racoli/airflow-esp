@@ -3,8 +3,9 @@
 
 use airflow_common::api::JWTCompactJWTGenerator;
 use airflow_common::utils::SecretString;
-use airflow_edge_sdk::worker::EdgeWorker;
-use airflow_esp::airflow::{EmbassyRuntime, ReqwlessEdgeApiClient};
+use airflow_edge_sdk::worker::{EdgeWorker, IntercomMessage, LocalIntercom, LocalRuntime};
+use airflow_esp::airflow::{EmbassyIntercom, EmbassyRuntime, ReqwlessEdgeApiClient};
+use airflow_esp::button::{Button, listen_boot_button};
 use airflow_esp::display::Display;
 use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
@@ -15,16 +16,18 @@ use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_net::dns::DnsSocket;
 use embassy_net::tcp::client::{TcpClient, TcpClientState};
+use embassy_sync::pubsub::PubSubBehavior;
 use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
 use esp_hal::Blocking;
 use esp_hal::clock::CpuClock;
+use esp_hal::gpio::{Input, InputConfig, Pull};
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::rng::Rng;
 use esp_hal::timer::systimer::SystemTimer;
 use esp_hal::timer::timg::TimerGroup;
 use esp_wifi::EspWifiController;
-use log::info;
+use log::{debug, info};
 
 extern crate alloc;
 
@@ -42,6 +45,13 @@ async fn main(spawner: Spawner) {
     // Event handler
     spawner.spawn(event_handler()).ok();
     info!("Event handler initialized!");
+
+    // Setup buttons
+    let boot_button: Input<'_> = Input::new(
+        peripherals.GPIO9,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    spawner.spawn(listen_boot_button(boot_button)).ok();
 
     // Display
     let i2c = I2c::new(peripherals.I2C0, Config::default())
@@ -86,7 +96,7 @@ async fn main(spawner: Spawner) {
     loop {
         if let Some(config) = stack.config_v4() {
             info!("Got IP: {}", config.address);
-            EVENTS.send(Event::Ip(Some(config.address.address()))).await;
+            EVENTS.publish_immediate(Event::Ip(Some(config.address.address())));
             break;
         }
         Timer::after(Duration::from_millis(500)).await;
@@ -105,6 +115,7 @@ async fn main(spawner: Spawner) {
     info!("Time set!");
 
     let runtime = EmbassyRuntime::init(spawner);
+    spawner.spawn(shutdown_listender(runtime.intercom())).ok();
     let secret: SecretString = CONFIG.airflow.api_auth.jwt_secret.into();
     let time_provider = TIME_PROVIDER.get().clone();
     let jwt_generator = JWTCompactJWTGenerator::new(secret, "api", time_provider.clone())
@@ -140,9 +151,10 @@ async fn event_handler() {
     let mut state = State::default();
     let sender = STATE.sender();
     sender.send(state);
+    let mut subscriber = EVENTS.subscriber().unwrap();
 
     loop {
-        let event = EVENTS.receive().await;
+        let event = subscriber.next_message_pure().await;
         match event {
             Event::Wifi(status) => {
                 state.wifi = status;
@@ -150,6 +162,7 @@ async fn event_handler() {
             Event::Ip(ip) => {
                 state.ip = ip;
             }
+            Event::ButtonPressed(_) => {}
         }
         sender.send(state);
     }
@@ -178,6 +191,25 @@ async fn render(mut display: Display<'static, Blocking>) {
         match display.update(state) {
             Ok(_) => {}
             Err(e) => info!("Failed to update display: {e:?}"),
+        }
+    }
+}
+
+#[embassy_executor::task]
+async fn shutdown_listender(intercom: EmbassyIntercom) {
+    let mut subscriber = EVENTS.subscriber().unwrap();
+    let mut first = true;
+    loop {
+        let event = subscriber.next_message_pure().await;
+        if let Event::ButtonPressed(Button::Boot) = event {
+            debug!("Boot button pressed");
+            let msg = if first {
+                first = false;
+                IntercomMessage::Shutdown
+            } else {
+                IntercomMessage::Terminate
+            };
+            intercom.send(msg).await.ok();
         }
     }
 }

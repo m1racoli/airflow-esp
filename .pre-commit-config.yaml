@@ -5,6 +5,8 @@ repos:
       - id: check-added-large-files
       - id: check-yaml
       - id: end-of-file-fixer
+        exclude_types:
+          - json
       - id: trailing-whitespace
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
