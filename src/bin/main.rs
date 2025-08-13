@@ -150,7 +150,7 @@ async fn main(spawner: Spawner) {
 async fn event_handler() {
     let mut state = State::default();
     let sender = STATE.sender();
-    sender.send(state);
+    sender.send(state.clone());
     let mut subscriber = EVENTS.subscriber().unwrap();
 
     loop {
@@ -163,8 +163,11 @@ async fn event_handler() {
                 state.ip = ip;
             }
             Event::ButtonPressed(_) => {}
+            Event::WorkerState(s) => {
+                state.worker_state = Some(s);
+            }
         }
-        sender.send(state);
+        sender.send(state.clone());
     }
 }
 
@@ -173,7 +176,7 @@ async fn render(mut display: Display<'static, Blocking>) {
     let mut receiver = STATE.receiver().unwrap();
 
     let mut state = receiver.get().await;
-    match display.update(state) {
+    match display.update(state.clone()) {
         Ok(_) => {}
         Err(e) => info!("Failed to update display: {e:?}"),
     }
@@ -188,7 +191,7 @@ async fn render(mut display: Display<'static, Blocking>) {
             Either::First(s) => state = s,
             Either::Second(_) => {}
         }
-        match display.update(state) {
+        match display.update(state.clone()) {
             Ok(_) => {}
             Err(e) => info!("Failed to update display: {e:?}"),
         }

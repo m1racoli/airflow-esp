@@ -6,17 +6,20 @@ use airflow_common::{
 };
 use airflow_edge_sdk::{
     api::EdgeJobFetched,
-    worker::{IntercomMessage, LocalEdgeJob, LocalIntercom, LocalRuntime},
+    worker::{IntercomMessage, LocalEdgeJob, LocalIntercom, LocalRuntime, WorkerState},
 };
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     channel::{Channel, Receiver, Sender},
+    pubsub::PubSubBehavior,
     signal::Signal,
 };
 use embassy_time::{Duration, Timer};
 use log::{debug, info};
+
+use crate::{EVENTS, Event};
 
 const INTERCOM_BUFFER_SIZE: usize = 8;
 static INTERCOM: Channel<CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE> =
@@ -175,5 +178,10 @@ impl LocalRuntime for EmbassyRuntime {
 
     fn concurrency(&self) -> usize {
         1
+    }
+
+    async fn on_update(&mut self, state: &WorkerState) {
+        debug!("Worker state updated: {:?}", state);
+        EVENTS.publish_immediate(Event::WorkerState(state.clone()));
     }
 }

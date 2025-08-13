@@ -13,6 +13,7 @@ macro_rules! mk_static {
     }};
 }
 
+use airflow_edge_sdk::worker::WorkerState;
 use core::net::Ipv4Addr;
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex, lazy_lock::LazyLock, pubsub::PubSubChannel,
@@ -27,7 +28,7 @@ pub mod display;
 pub mod time;
 pub mod wifi;
 
-pub static EVENTS: PubSubChannel<CriticalSectionRawMutex, Event, 8, 2, 2> = PubSubChannel::new();
+pub static EVENTS: PubSubChannel<CriticalSectionRawMutex, Event, 8, 2, 3> = PubSubChannel::new();
 pub static STATE: Watch<CriticalSectionRawMutex, State, 1> = Watch::new();
 pub static OFFSET: Watch<CriticalSectionRawMutex, i64, 1> = Watch::new();
 pub static TIME_PROVIDER: LazyLock<OffsetWatchTimeProvider<'static, CriticalSectionRawMutex, 1>> =
@@ -49,17 +50,19 @@ static_toml::static_toml! {
     pub const RESOURCES = include_toml!("resources.toml");
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Event {
     Wifi(WifiStatus),
     Ip(Option<Ipv4Addr>),
     ButtonPressed(button::Button),
+    WorkerState(WorkerState),
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct State {
     pub wifi: WifiStatus,
     pub ip: Option<core::net::Ipv4Addr>,
+    pub worker_state: Option<WorkerState>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]

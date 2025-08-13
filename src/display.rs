@@ -104,8 +104,24 @@ where
         // Time
         let dt = TIME_PROVIDER.get().now();
         write!(&mut buf, "{}", dt.format("%Y-%m-%d %H:%M:%S")).unwrap();
-        _ = self.draw_text(&buf, y)?;
+        y = self.draw_text(&buf, y)?;
         buf.clear();
+
+        // Worker State
+        if let Some(s) = state.worker_state {
+            write!(&mut buf, "{:?}", s.get_state()).unwrap();
+            y = self.draw_text(&buf, y)?;
+            buf.clear();
+            write!(
+                &mut buf,
+                "Slots: {}/{}",
+                s.used_concurrency(),
+                s.concurrency()
+            )
+            .unwrap();
+            _ = self.draw_text(&buf, y)?;
+            buf.clear();
+        }
 
         self.display.flush()?;
         self.display.clear_buffer();
