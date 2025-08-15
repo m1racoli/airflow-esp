@@ -54,6 +54,7 @@ name = "airflow-edge-sdk"
 version = "0.1.0"
 dependencies = [
  "airflow-common",
+ "airflow-task-sdk",
  "cfg-if",
  "log",
  "serde",
@@ -67,6 +68,7 @@ version = "0.1.0"
 dependencies = [
  "airflow-common",
  "airflow-edge-sdk",
+ "airflow-task-sdk",
  "critical-section",
  "display-interface",
  "embassy-executor",
@@ -94,6 +96,18 @@ dependencies = [
  "static-toml",
  "static_cell",
  "thiserror",
+]
+
+[[package]]
+name = "airflow-task-sdk"
+version = "0.1.0"
+dependencies = [
+ "airflow-common",
+ "cfg-if",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "trait-variant",
 ]
 
 [[package]]

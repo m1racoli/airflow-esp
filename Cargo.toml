@@ -15,6 +15,7 @@ airflow-common = { path = "../airflow-rs/airflow-common", default-features = fal
   "jwt-compact",
 ] }
 airflow-edge-sdk = { path = "../airflow-rs/airflow-edge-sdk", default-features = false }
+airflow-task-sdk = { path = "../airflow-rs/airflow-task-sdk", default-features = false }
 critical-section = "1.2.0"
 display-interface = "0.5.0"
 embassy-executor = { version = "0.7.0", features = ["task-arena-size-65536"] }

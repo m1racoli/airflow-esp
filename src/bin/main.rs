@@ -7,6 +7,7 @@ use airflow_edge_sdk::worker::{EdgeWorker, IntercomMessage, LocalIntercom, Local
 use airflow_esp::airflow::{EmbassyIntercom, EmbassyRuntime, ReqwlessEdgeApiClient};
 use airflow_esp::button::{Button, listen_boot_button};
 use airflow_esp::display::Display;
+use airflow_esp::example::get_dag_bag;
 use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
 use airflow_esp::{
@@ -133,8 +134,8 @@ async fn main(spawner: Spawner) {
         CONFIG.airflow.edge.api_url,
         jwt_generator,
     );
-
-    let worker = EdgeWorker::new(HOSTNAME, edge_api_client, time_provider, runtime);
+    let dag_bag = get_dag_bag();
+    let worker = EdgeWorker::new(HOSTNAME, edge_api_client, time_provider, runtime, dag_bag);
 
     match worker.start().await {
         Ok(_) => {}

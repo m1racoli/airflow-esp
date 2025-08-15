@@ -25,6 +25,7 @@ use crate::airflow::OffsetWatchTimeProvider;
 pub mod airflow;
 pub mod button;
 pub mod display;
+pub mod example;
 pub mod time;
 pub mod wifi;
 

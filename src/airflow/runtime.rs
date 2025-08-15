@@ -8,6 +8,7 @@ use airflow_edge_sdk::{
     api::EdgeJobFetched,
     worker::{IntercomMessage, LocalEdgeJob, LocalIntercom, LocalRuntime, WorkerState},
 };
+use airflow_task_sdk::definitions::DagBag;
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_sync::{
@@ -85,6 +86,7 @@ impl LocalIntercom for EmbassyIntercom {
 async fn launch(
     task: ExecuteTask,
     intercom: EmbassyIntercom,
+    dag_bag: &'static DagBag,
     result_signal: &'static Signal<CriticalSectionRawMutex, bool>,
     abort_signal: &'static Signal<CriticalSectionRawMutex, ()>,
 ) {
@@ -100,10 +102,9 @@ async fn launch(
         //         return false;
         //     }
         // };
-
-        // TODO: dag bag should coming from self or so
-        // let dag_bag = ExampleDagBag {};
-        // supervise::<ExampleDagBag>(task, client, dag_bag).await;
+        // TODO use supervisor
+        let _ = dag_bag;
+        // supervise(task, client, dag_bag).await;
         Timer::after(Duration::from_secs(30)).await; // Simulate task execution delay
 
         intercom.send(IntercomMessage::JobCompleted(key)).await.ok();
@@ -136,7 +137,7 @@ impl EmbassyRuntime {
     }
 }
 
-impl LocalRuntime for EmbassyRuntime {
+impl LocalRuntime<'static> for EmbassyRuntime {
     type Job = EmbassyEdgeJob;
     type Intercom = EmbassyIntercom;
 
@@ -157,14 +158,20 @@ impl LocalRuntime for EmbassyRuntime {
         EmbassyIntercom(self.send)
     }
 
-    fn launch(&self, job: EdgeJobFetched) -> Self::Job {
+    fn launch(&self, job: EdgeJobFetched, dag_bag: &'static DagBag) -> Self::Job {
         let ti_key = job.ti_key();
         let intercom = self.intercom();
 
         RESULT_SIGNAL.reset();
         ABORT_SIGNAL.reset();
         self.spawner
-            .spawn(launch(job.command, intercom, &RESULT_SIGNAL, &ABORT_SIGNAL))
+            .spawn(launch(
+                job.command,
+                intercom,
+                dag_bag,
+                &RESULT_SIGNAL,
+                &ABORT_SIGNAL,
+            ))
             .ok();
 
         EmbassyEdgeJob {
