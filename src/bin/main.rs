@@ -3,7 +3,7 @@
 
 use airflow_common::api::JWTCompactJWTGenerator;
 use airflow_common::utils::SecretString;
-use airflow_edge_sdk::worker::{EdgeWorker, IntercomMessage, LocalIntercom, LocalRuntime};
+use airflow_edge_sdk::worker::{EdgeWorker, IntercomMessage, LocalIntercom, LocalWorkerRuntime};
 use airflow_esp::airflow::{EmbassyIntercom, EmbassyRuntime, ReqwlessEdgeApiClient};
 use airflow_esp::button::{Button, listen_boot_button};
 use airflow_esp::display::Display;

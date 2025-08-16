@@ -6,7 +6,7 @@ use airflow_common::{
 };
 use airflow_edge_sdk::{
     api::EdgeJobFetched,
-    worker::{IntercomMessage, LocalEdgeJob, LocalIntercom, LocalRuntime, WorkerState},
+    worker::{IntercomMessage, LocalEdgeJob, LocalIntercom, LocalWorkerRuntime, WorkerState},
 };
 use airflow_task_sdk::definitions::DagBag;
 use embassy_executor::Spawner;
@@ -139,7 +139,7 @@ impl<'r> EmbassyRuntime<'r> {
     }
 }
 
-impl<'r> LocalRuntime<'static> for EmbassyRuntime<'r> {
+impl<'r> LocalWorkerRuntime<'static> for EmbassyRuntime<'r> {
     type Job = EmbassyEdgeJob;
     type Intercom = EmbassyIntercom;
 
