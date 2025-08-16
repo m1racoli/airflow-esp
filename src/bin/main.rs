@@ -30,6 +30,8 @@ use esp_hal::timer::timg::TimerGroup;
 use esp_wifi::EspWifiController;
 use log::{debug, info};
 
+esp_bootloader_esp_idf::esp_app_desc!();
+
 extern crate alloc;
 
 const NUM_TCP_CONNECTIONS: usize = RESOURCES.tcp.num_connections as usize;
