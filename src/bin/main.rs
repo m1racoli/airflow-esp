@@ -115,7 +115,7 @@ async fn main(spawner: Spawner) {
         .await;
     info!("Time set!");
 
-    let runtime = EmbassyRuntime::init(spawner);
+    let runtime = EmbassyRuntime::init(spawner, HOSTNAME);
     spawner.spawn(shutdown_listender(runtime.intercom())).ok();
     let secret: SecretString = CONFIG.airflow.api_auth.jwt_secret.into();
     let time_provider = TIME_PROVIDER.get().clone();
@@ -135,7 +135,7 @@ async fn main(spawner: Spawner) {
         jwt_generator,
     );
     let dag_bag = get_dag_bag();
-    let worker = EdgeWorker::new(HOSTNAME, edge_api_client, time_provider, runtime, dag_bag);
+    let worker = EdgeWorker::new(edge_api_client, time_provider, runtime, dag_bag);
 
     match worker.start().await {
         Ok(_) => {}

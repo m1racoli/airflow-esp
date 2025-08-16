@@ -121,23 +121,25 @@ async fn launch(
     }
 }
 
-pub struct EmbassyRuntime {
+pub struct EmbassyRuntime<'r> {
     spawner: Spawner,
     recv: Receiver<'static, CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE>,
     send: Sender<'static, CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE>,
+    hostname: &'r str,
 }
 
-impl EmbassyRuntime {
-    pub fn init(spawner: Spawner) -> Self {
+impl<'r> EmbassyRuntime<'r> {
+    pub fn init(spawner: Spawner, hostname: &'r str) -> Self {
         EmbassyRuntime {
             spawner,
             recv: INTERCOM.receiver(),
             send: INTERCOM.sender(),
+            hostname,
         }
     }
 }
 
-impl LocalRuntime<'static> for EmbassyRuntime {
+impl<'r> LocalRuntime<'static> for EmbassyRuntime<'r> {
     type Job = EmbassyEdgeJob;
     type Intercom = EmbassyIntercom;
 
@@ -190,5 +192,9 @@ impl LocalRuntime<'static> for EmbassyRuntime {
     async fn on_update(&mut self, state: &WorkerState) {
         debug!("Worker state updated: {:?}", state);
         EVENTS.publish_immediate(Event::WorkerState(state.clone()));
+    }
+
+    fn hostname(&self) -> &str {
+        self.hostname
     }
 }
