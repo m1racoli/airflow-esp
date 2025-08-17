@@ -139,7 +139,7 @@ impl<'r> EmbassyRuntime<'r> {
     }
 }
 
-impl<'r> LocalWorkerRuntime<'static> for EmbassyRuntime<'r> {
+impl<'r> LocalWorkerRuntime for EmbassyRuntime<'r> {
     type Job = EmbassyEdgeJob;
     type Intercom = EmbassyIntercom;
 
