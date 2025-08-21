@@ -11,7 +11,8 @@ use airflow_esp::example::get_dag_bag;
 use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
 use airflow_esp::{
-    CONFIG, EVENTS, Event, HOSTNAME, OFFSET, RESOURCES, STATE, State, TIME_PROVIDER, mk_static,
+    CONFIG, EVENTS, Event, HOSTNAME, NUM_TCP_CONNECTIONS, OFFSET, STATE, State, TCP_RX_BUF_SIZE,
+    TCP_TIMEOUT, TCP_TX_BUF_SIZE, TIME_PROVIDER, mk_static,
 };
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
@@ -33,10 +34,6 @@ use log::{debug, info};
 esp_bootloader_esp_idf::esp_app_desc!();
 
 extern crate alloc;
-
-const NUM_TCP_CONNECTIONS: usize = RESOURCES.tcp.num_connections as usize;
-const TCP_RX_BUF_SIZE: usize = RESOURCES.tcp.rx_buf_size as usize;
-const TCP_TX_BUF_SIZE: usize = RESOURCES.tcp.tx_buf_size as usize;
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
@@ -127,7 +124,7 @@ async fn main(spawner: Spawner) {
     let tcp_client_state: TcpClientState<NUM_TCP_CONNECTIONS, TCP_RX_BUF_SIZE, TCP_TX_BUF_SIZE> =
         TcpClientState::new();
     let mut tcp_client = TcpClient::new(stack, &tcp_client_state);
-    tcp_client.set_timeout(Some(Duration::from_secs(RESOURCES.tcp.timeout as u64)));
+    tcp_client.set_timeout(Some(Duration::from_secs(TCP_TIMEOUT)));
     let dns_socket = DnsSocket::new(stack);
 
     let edge_api_client = ReqwlessEdgeApiClient::new(

@@ -16,9 +16,7 @@ use reqwless::request::{Method, RequestBody, RequestBuilder};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use crate::RESOURCES;
-
-const RX_BUF_SIZE: usize = RESOURCES.http.rx_buf_size as usize;
+use crate::HTTP_RX_BUF_SIZE;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ReqwlessEdgeApiError<J: Error> {
@@ -143,7 +141,7 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
 
     async fn health(&mut self) -> Result<HealthReturn, EdgeApiError<Self::Error>> {
         let path = "health";
-        let mut rx_buf = [0; RX_BUF_SIZE];
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         let response_body = self
             .request::<()>(&mut rx_buf, Method::GET, path, None)
             .await?;
@@ -166,7 +164,7 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             maintenance_comments: None,
         };
         let body = Self::serialize(&body)?;
-        let mut rx_buf = [0; RX_BUF_SIZE];
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         let response_body = self
             .request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
             .await?;
@@ -191,7 +189,7 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             maintenance_comments,
         };
         let body = Self::serialize(&body)?;
-        let mut rx_buf = [0; RX_BUF_SIZE];
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         let response_body = self
             .request::<&[u8]>(&mut rx_buf, Method::PATCH, &path, Some(&body))
             .await?;
@@ -210,7 +208,7 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             free_concurrency,
         };
         let body = Self::serialize(&body)?;
-        let mut rx_buf = [0; RX_BUF_SIZE];
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         let response_body = self
             .request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
             .await?;
@@ -231,7 +229,7 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             key.map_index(),
             state
         );
-        let mut rx_buf = [0; RX_BUF_SIZE];
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         self.request::<()>(&mut rx_buf, Method::PATCH, &path, None)
             .await?;
         Ok(())
@@ -249,7 +247,7 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             key.try_number(),
             key.map_index(),
         );
-        let mut rx_buf = [0; RX_BUF_SIZE];
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         let response_body = self
             .request::<()>(&mut rx_buf, Method::GET, &path, None)
             .await?;
@@ -275,7 +273,7 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> Loca
             log_chunk_data,
         };
         let body = Self::serialize(&body)?;
-        let mut rx_buf = [0; RX_BUF_SIZE];
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         self.request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
             .await?;
         Ok(())

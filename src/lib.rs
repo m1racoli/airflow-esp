@@ -29,6 +29,13 @@ pub mod example;
 pub mod time;
 pub mod wifi;
 
+pub const HTTP_RX_BUF_SIZE: usize = RESOURCES.http.rx_buf_size as usize;
+pub const NUM_TCP_CONNECTIONS: usize = RESOURCES.tcp.num_connections as usize;
+pub const STACK_NUM_SOCKETS: usize = RESOURCES.stack.num_sockets as usize;
+pub const TCP_RX_BUF_SIZE: usize = RESOURCES.tcp.rx_buf_size as usize;
+pub const TCP_TIMEOUT: u64 = RESOURCES.tcp.timeout as u64;
+pub const TCP_TX_BUF_SIZE: usize = RESOURCES.tcp.tx_buf_size as usize;
+
 pub static EVENTS: PubSubChannel<CriticalSectionRawMutex, Event, 8, 2, 3> = PubSubChannel::new();
 pub static STATE: Watch<CriticalSectionRawMutex, State, 1> = Watch::new();
 pub static OFFSET: Watch<CriticalSectionRawMutex, i64, 1> = Watch::new();
@@ -43,12 +50,12 @@ pub static HOSTNAME: &str = "airflow-esp-wokwi";
 #[cfg(not(feature = "wokwi"))]
 static_toml::static_toml! {
     pub static CONFIG = include_toml!("config.toml");
-    pub const RESOURCES = include_toml!("resources.toml");
+    const RESOURCES = include_toml!("resources.toml");
 }
 #[cfg(feature = "wokwi")]
 static_toml::static_toml! {
     pub static CONFIG = include_toml!("config.wokwi.toml");
-    pub const RESOURCES = include_toml!("resources.toml");
+    const RESOURCES = include_toml!("resources.toml");
 }
 
 #[derive(Debug, Clone)]
