@@ -188,7 +188,7 @@ impl<'a, const N: usize, const TX: usize, const RX: usize> LocalExecutionApiClie
         when: &UtcDateTime,
     ) -> Result<TIRunContext, ExecutionApiError<Self::Error>> {
         let path = format!("task-instances/{id}/run");
-        let body = TIEnterRunningPayload {
+        let body = TIEnterRunningPayloadBody {
             state: TaskInstanceState::Running,
             hostname,
             unixname,
@@ -212,7 +212,7 @@ impl<'a, const N: usize, const TX: usize, const RX: usize> LocalExecutionApiClie
         rendered_map_index: Option<&str>,
     ) -> Result<(), ExecutionApiError<Self::Error>> {
         let path = format!("task-instances/{id}/state");
-        let body = TITerminalStatePayload {
+        let body = TITerminalStatePayloadBody {
             state,
             end_date: when,
             rendered_map_index,
@@ -244,7 +244,7 @@ impl<'a, const N: usize, const TX: usize, const RX: usize> LocalExecutionApiClie
         rendered_map_index: Option<&str>,
     ) -> Result<(), ExecutionApiError<Self::Error>> {
         let path = format!("task-instances/{id}/state");
-        let body = TISuccessStatePayload {
+        let body = TISuccessStatePayloadBody {
             state: TaskInstanceState::Success,
             end_date: when,
             task_outlets,
@@ -292,7 +292,7 @@ impl<'a, const N: usize, const TX: usize, const RX: usize> LocalExecutionApiClie
         pid: u32,
     ) -> Result<(), ExecutionApiError<Self::Error>> {
         let path = format!("task-instances/{id}/heartbeat");
-        let body = TIHeartbeatInfo { hostname, pid };
+        let body = TIHeartbeatInfoBody { hostname, pid };
         let body = Self::serialize(&body)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         self.request::<&[u8]>(&mut rx_buf, Method::PUT, &path, Some(&body))
