@@ -20,7 +20,9 @@ use embassy_sync::{
     watch::Watch,
 };
 
-use crate::airflow::OffsetWatchTimeProvider;
+use crate::airflow::{
+    OffsetWatchTimeProvider, ReqwlessExecutionApiClient, ReqwlessExecutionApiClientFactory,
+};
 
 pub mod airflow;
 pub mod button;
@@ -35,6 +37,16 @@ pub const STACK_NUM_SOCKETS: usize = RESOURCES.stack.num_sockets as usize;
 pub const TCP_RX_BUF_SIZE: usize = RESOURCES.tcp.rx_buf_size as usize;
 pub const TCP_TIMEOUT: u64 = RESOURCES.tcp.timeout as u64;
 pub const TCP_TX_BUF_SIZE: usize = RESOURCES.tcp.tx_buf_size as usize;
+
+pub type EspExecutionApiClientFactory = ReqwlessExecutionApiClientFactory<
+    'static,
+    NUM_TCP_CONNECTIONS,
+    TCP_TX_BUF_SIZE,
+    TCP_RX_BUF_SIZE,
+>;
+pub type EspExecutionApiClient =
+    ReqwlessExecutionApiClient<'static, NUM_TCP_CONNECTIONS, TCP_TX_BUF_SIZE, TCP_RX_BUF_SIZE>;
+pub type EspTimeProvider = OffsetWatchTimeProvider<'static, CriticalSectionRawMutex, 1>;
 
 pub static EVENTS: PubSubChannel<CriticalSectionRawMutex, Event, 8, 2, 3> = PubSubChannel::new();
 pub static STATE: Watch<CriticalSectionRawMutex, State, 1> = Watch::new();

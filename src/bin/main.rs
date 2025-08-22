@@ -11,8 +11,8 @@ use airflow_esp::example::get_dag_bag;
 use airflow_esp::time::measure_time;
 use airflow_esp::wifi::init_wifi_stack;
 use airflow_esp::{
-    CONFIG, EVENTS, Event, HOSTNAME, NUM_TCP_CONNECTIONS, OFFSET, STATE, State, TCP_RX_BUF_SIZE,
-    TCP_TIMEOUT, TCP_TX_BUF_SIZE, TIME_PROVIDER, mk_static,
+    CONFIG, EVENTS, EspExecutionApiClientFactory, Event, HOSTNAME, NUM_TCP_CONNECTIONS, OFFSET,
+    STATE, State, TCP_RX_BUF_SIZE, TCP_TIMEOUT, TCP_TX_BUF_SIZE, TIME_PROVIDER, mk_static,
 };
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
@@ -114,22 +114,33 @@ async fn main(spawner: Spawner) {
         .await;
     info!("Time set!");
 
-    let runtime = EmbassyRuntime::init(spawner, HOSTNAME);
+    // TODO use LazyLock to build statics?
+    let tcp_client_state = &*mk_static!(
+        TcpClientState<NUM_TCP_CONNECTIONS, TCP_RX_BUF_SIZE, TCP_TX_BUF_SIZE>,
+        TcpClientState::new()
+    );
+
+    // TODO use LazyLock to build statics?
+    let mut tcp_client = TcpClient::new(stack, tcp_client_state);
+    tcp_client.set_timeout(Some(Duration::from_secs(TCP_TIMEOUT)));
+    let tcp_client = &*mk_static!(
+        TcpClient<'static, NUM_TCP_CONNECTIONS, TCP_RX_BUF_SIZE, TCP_TX_BUF_SIZE>,
+        tcp_client
+    );
+
+    let dns_socket = &*mk_static!(DnsSocket<'static>, DnsSocket::new(stack));
+
+    let client_factory = EspExecutionApiClientFactory::new(tcp_client, dns_socket);
+    let runtime = EmbassyRuntime::init(spawner, HOSTNAME, client_factory);
     spawner.spawn(shutdown_listender(runtime.intercom())).ok();
     let secret: SecretString = CONFIG.airflow.api_auth.jwt_secret.into();
     let time_provider = TIME_PROVIDER.get().clone();
     let jwt_generator = JWTCompactJWTGenerator::new(secret, "api", time_provider.clone())
         .with_issuer("airflow-esp");
 
-    let tcp_client_state: TcpClientState<NUM_TCP_CONNECTIONS, TCP_RX_BUF_SIZE, TCP_TX_BUF_SIZE> =
-        TcpClientState::new();
-    let mut tcp_client = TcpClient::new(stack, &tcp_client_state);
-    tcp_client.set_timeout(Some(Duration::from_secs(TCP_TIMEOUT)));
-    let dns_socket = DnsSocket::new(stack);
-
     let edge_api_client = ReqwlessEdgeApiClient::new(
-        &tcp_client,
-        &dns_socket,
+        tcp_client,
+        dns_socket,
         CONFIG.airflow.edge.api_url,
         jwt_generator,
     );

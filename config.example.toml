@@ -8,6 +8,9 @@ server = "pool.ntp.org"
 [airflow.api_auth]
 jwt_secret = "secret123"
 
+[airflow.core]
+execution_api_server_url = "http://airflow.hosting.org/execution"
+
 [airflow.edge]
 api_url = "https://airflow.hosting.org/edge_worker/v1/rpcapi"
 heartbeat_interval = 30

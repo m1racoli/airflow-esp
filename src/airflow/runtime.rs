@@ -1,4 +1,9 @@
-use core::{convert::Infallible, time};
+use core::{
+    convert::Infallible,
+    pin::Pin,
+    task::{Context, Poll},
+    time,
+};
 
 use airflow_common::{
     executors::ExecuteTask,
@@ -8,7 +13,13 @@ use airflow_edge_sdk::{
     api::EdgeJobFetched,
     worker::{IntercomMessage, LocalEdgeJob, LocalIntercom, LocalWorkerRuntime, WorkerState},
 };
-use airflow_task_sdk::definitions::DagBag;
+use airflow_task_sdk::{
+    definitions::DagBag,
+    execution::{
+        ExecutionError, ExecutionResultTIState, LocalTaskRuntime, StartupDetails, TaskHandle,
+        TaskRunner, supervise,
+    },
+};
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_sync::{
@@ -17,16 +28,24 @@ use embassy_sync::{
     pubsub::PubSubBehavior,
     signal::Signal,
 };
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Instant, Timer};
 use log::{debug, info};
 
-use crate::{EVENTS, Event};
+use crate::{
+    CONFIG, EVENTS, EspExecutionApiClient, EspExecutionApiClientFactory, EspTimeProvider, Event,
+    TIME_PROVIDER,
+};
 
 const INTERCOM_BUFFER_SIZE: usize = 8;
 static INTERCOM: Channel<CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE> =
     Channel::new();
 static RESULT_SIGNAL: Signal<CriticalSectionRawMutex, bool> = Signal::new();
 static ABORT_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+static TASK_RESULT_SIGNAL: Signal<
+    CriticalSectionRawMutex,
+    Result<ExecutionResultTIState, ExecutionError<EspExecutionApiClient>>,
+> = Signal::new();
+static TASK_ABORT_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
 pub struct EmbassyEdgeJob {
     ti_key: TaskInstanceKey,
@@ -83,10 +102,14 @@ impl LocalIntercom for EmbassyIntercom {
 }
 
 #[embassy_executor::task(pool_size = 1)]
+#[allow(clippy::too_many_arguments)]
 async fn launch(
     task: ExecuteTask,
     intercom: EmbassyIntercom,
     dag_bag: &'static DagBag,
+    client_factory: EspExecutionApiClientFactory,
+    runtime: EmbassyTaskRuntime<'static>,
+    time_provider: EspTimeProvider,
     result_signal: &'static Signal<CriticalSectionRawMutex, bool>,
     abort_signal: &'static Signal<CriticalSectionRawMutex, ()>,
 ) {
@@ -94,18 +117,15 @@ async fn launch(
         let key = task.ti().ti_key();
         info!("Worker task launched for {}", key);
 
-        // let client = match StdExecutionApiClient::new(EXECUTION_API_SERVER_URL, task.token()) {
-        //     Ok(client) => client,
-        //     Err(e) => {
-        //         error!("Failed to create execution API client: {}", e);
-        //         intercom.send(IntercomMessage::JobCompleted(key)).await.ok();
-        //         return false;
-        //     }
-        // };
-        // TODO use supervisor
-        let _ = dag_bag;
-        // supervise(task, client, dag_bag).await;
-        Timer::after(Duration::from_secs(30)).await; // Simulate task execution delay
+        supervise(
+            task,
+            client_factory,
+            time_provider,
+            dag_bag,
+            &runtime,
+            CONFIG.airflow.core.execution_api_server_url, // TODO this should be an argument?
+        )
+        .await;
 
         intercom.send(IntercomMessage::JobCompleted(key)).await.ok();
         true
@@ -121,25 +141,58 @@ async fn launch(
     }
 }
 
+#[embassy_executor::task(pool_size = 1)]
+async fn task_runner(
+    details: StartupDetails,
+    dag_bag: &'static DagBag,
+    client: EspExecutionApiClient,
+    time_provider: EspTimeProvider,
+    result_signal: &'static Signal<
+        CriticalSectionRawMutex,
+        Result<ExecutionResultTIState, ExecutionError<EspExecutionApiClient>>,
+    >,
+    abort_signal: &'static Signal<CriticalSectionRawMutex, ()>,
+) {
+    let closure = async {
+        let task_runner = TaskRunner::new(client, time_provider);
+        task_runner.main(details, dag_bag).await
+    };
+
+    match select(closure, abort_signal.wait()).await {
+        Either::First(result) => {
+            result_signal.signal(result);
+        }
+        Either::Second(_) => {
+            // TODO signal to supervised activity task
+        }
+    }
+}
+
 pub struct EmbassyRuntime<'r> {
     spawner: Spawner,
     recv: Receiver<'static, CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE>,
     send: Sender<'static, CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE>,
     hostname: &'r str,
+    client_factory: EspExecutionApiClientFactory,
 }
 
 impl<'r> EmbassyRuntime<'r> {
-    pub fn init(spawner: Spawner, hostname: &'r str) -> Self {
+    pub fn init(
+        spawner: Spawner,
+        hostname: &'r str,
+        client_factory: EspExecutionApiClientFactory,
+    ) -> Self {
         EmbassyRuntime {
             spawner,
             recv: INTERCOM.receiver(),
             send: INTERCOM.sender(),
             hostname,
+            client_factory,
         }
     }
 }
 
-impl<'r> LocalWorkerRuntime for EmbassyRuntime<'r> {
+impl LocalWorkerRuntime for EmbassyRuntime<'static> {
     type Job = EmbassyEdgeJob;
     type Intercom = EmbassyIntercom;
 
@@ -164,6 +217,13 @@ impl<'r> LocalWorkerRuntime for EmbassyRuntime<'r> {
         let ti_key = job.ti_key();
         let intercom = self.intercom();
 
+        let runtime = EmbassyTaskRuntime {
+            spawner: self.spawner,
+            hostname: self.hostname,
+        };
+
+        let time_provider = TIME_PROVIDER.get().clone();
+
         RESULT_SIGNAL.reset();
         ABORT_SIGNAL.reset();
         self.spawner
@@ -171,6 +231,9 @@ impl<'r> LocalWorkerRuntime for EmbassyRuntime<'r> {
                 job.command,
                 intercom,
                 dag_bag,
+                self.client_factory.clone(),
+                runtime,
+                time_provider,
                 &RESULT_SIGNAL,
                 &ABORT_SIGNAL,
             ))
@@ -196,5 +259,99 @@ impl<'r> LocalWorkerRuntime for EmbassyRuntime<'r> {
 
     fn hostname(&self) -> &str {
         self.hostname
+    }
+}
+
+pub struct EmbassyTaskHandle {
+    result_signal: &'static Signal<
+        CriticalSectionRawMutex,
+        Result<ExecutionResultTIState, ExecutionError<EspExecutionApiClient>>,
+    >,
+    abort_signal: &'static Signal<CriticalSectionRawMutex, ()>,
+}
+
+impl TaskHandle<EspExecutionApiClient> for EmbassyTaskHandle {
+    fn abort(&self) {
+        self.abort_signal.signal(());
+    }
+}
+
+impl Future for EmbassyTaskHandle {
+    type Output = Result<ExecutionResultTIState, ExecutionError<EspExecutionApiClient>>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+        let mut future = this.result_signal.wait();
+        let future = Pin::new(&mut future);
+        future.poll(cx)
+    }
+}
+
+pub struct EmbassyTaskRuntime<'r> {
+    spawner: Spawner,
+    hostname: &'r str,
+}
+
+impl<'r> LocalTaskRuntime<EspExecutionApiClient, EspTimeProvider> for EmbassyTaskRuntime<'r> {
+    type ActivityHandle = EmbassyTaskHandle;
+
+    type Instant = Instant;
+
+    fn now(&self) -> Self::Instant {
+        Instant::now()
+    }
+
+    fn elapsed(&self, start: Self::Instant) -> time::Duration {
+        Instant::now().duration_since(start).into()
+    }
+
+    fn hostname(&self) -> &str {
+        self.hostname
+    }
+
+    fn unixname(&self) -> &str {
+        "airflow"
+    }
+
+    fn pid(&self) -> u32 {
+        0
+    }
+
+    fn start(
+        &self,
+        client: EspExecutionApiClient,
+        time_provider: EspTimeProvider,
+        details: StartupDetails,
+        dag_bag: &'static DagBag,
+    ) -> Self::ActivityHandle {
+        TASK_RESULT_SIGNAL.reset();
+        TASK_ABORT_SIGNAL.reset();
+        self.spawner
+            .spawn(task_runner(
+                details,
+                dag_bag,
+                client,
+                time_provider,
+                &TASK_RESULT_SIGNAL,
+                &TASK_ABORT_SIGNAL,
+            ))
+            .ok();
+        EmbassyTaskHandle {
+            result_signal: &TASK_RESULT_SIGNAL,
+            abort_signal: &TASK_ABORT_SIGNAL,
+        }
+    }
+
+    async fn wait(
+        &self,
+        handle: &mut Self::ActivityHandle,
+        timeout: time::Duration,
+    ) -> Option<Result<ExecutionResultTIState, ExecutionError<EspExecutionApiClient>>> {
+        debug!("Sleeping for {} seconds", timeout.as_secs());
+        let timeout = Duration::from_secs(timeout.as_secs());
+        match select(Timer::after(timeout), handle).await {
+            Either::First(_) => None,
+            Either::Second(r) => Some(r),
+        }
     }
 }

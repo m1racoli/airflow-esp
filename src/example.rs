@@ -18,7 +18,7 @@ impl Operator for ExampleOperator {
         );
         info!("I am running with cnt={}", self.cnt);
         // TODO test with more than 5 minutes of heartbeat timeout
-        Timer::after(Duration::from_secs(5)).await;
+        Timer::after(Duration::from_secs(7)).await;
         warn!("This feels very fast! 😎");
         self.cnt += 1;
         info!("I am done with cnt={}", self.cnt);

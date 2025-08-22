@@ -2,10 +2,12 @@
 rx_buf_size = 4096
 
 [stack]
-num_sockets = 4
+# tcp.num_num_connections + 3
+num_sockets = 6
 
 [tcp]
-num_connections = 1
+# 1 for edge worker + 2 * task concurrency
+num_connections = 3
 rx_buf_size = 1024
 tx_buf_size = 1024
 timeout = 10
