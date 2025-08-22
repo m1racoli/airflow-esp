@@ -2,9 +2,7 @@ use airflow_common::datetime::UtcDateTime;
 use airflow_common::executors::UniqueTaskInstanceId;
 use airflow_common::utils::{MapIndex, SecretString, TaskInstanceState, TerminalTIStateNonSuccess};
 use airflow_task_sdk::api::{
-    AssetProfile, ExecutionApiError, InactiveAssetsResponse, LocalExecutionApiClient,
-    LocalExecutionApiClientFactory, PrevSuccessfulDagRunResponse, TICount, TIRunContext,
-    TaskRescheduleStartDate, TaskStatesResponse,
+    ExecutionApiError, LocalExecutionApiClient, LocalExecutionApiClientFactory, datamodels::*,
 };
 use alloc::format;
 use alloc::string::{String, ToString};
@@ -375,35 +373,4 @@ impl<'a, const N: usize, const TX: usize, const RX: usize> LocalExecutionApiClie
     ) -> Result<InactiveAssetsResponse, ExecutionApiError<Self::Error>> {
         todo!()
     }
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct TIEnterRunningPayload<'a> {
-    state: TaskInstanceState,
-    hostname: &'a str,
-    unixname: &'a str,
-    pid: u32,
-    start_date: &'a UtcDateTime,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct TITerminalStatePayload<'a> {
-    state: TerminalTIStateNonSuccess,
-    end_date: &'a UtcDateTime,
-    rendered_map_index: Option<&'a str>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct TISuccessStatePayload<'a> {
-    state: TaskInstanceState, // TODO tag success
-    end_date: &'a UtcDateTime,
-    task_outlets: &'a [AssetProfile],
-    outlet_events: &'a [()], // TODO outlet events
-    rendered_map_index: Option<&'a str>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct TIHeartbeatInfo<'a> {
-    hostname: &'a str,
-    pid: u32,
 }
