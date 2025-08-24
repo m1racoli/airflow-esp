@@ -69,21 +69,6 @@ pub struct ReqwlessExecutionApiClient<'a, const N: usize, const TX: usize, const
     client: HttpClient<'a, TcpClient<'a, N, TX, RX>, DnsSocket<'a>>,
     base_url: String,
     token: SecretString,
-    _tcp_client: &'a TcpClient<'a, N, TX, RX>,
-    _dns_socket: &'a DnsSocket<'a>,
-}
-
-impl<'a, const N: usize, const TX: usize, const RX: usize> Clone
-    for ReqwlessExecutionApiClient<'a, N, TX, RX>
-{
-    fn clone(&self) -> Self {
-        Self::new(
-            self._tcp_client,
-            self._dns_socket,
-            &self.base_url,
-            &self.token,
-        )
-    }
 }
 
 impl<'a, const N: usize, const TX: usize, const RX: usize>
@@ -100,8 +85,6 @@ impl<'a, const N: usize, const TX: usize, const RX: usize>
         Self {
             client,
             base_url: base_url.into(),
-            _tcp_client: tcp_client,
-            _dns_socket: dns_socket,
             token: token.clone(),
         }
     }
