@@ -1,9 +1,4 @@
-use core::{
-    convert::Infallible,
-    pin::Pin,
-    task::{Context, Poll},
-    time,
-};
+use core::{convert::Infallible, time};
 
 use airflow_common::{
     executors::ExecuteTask,
@@ -16,12 +11,12 @@ use airflow_edge_sdk::{
 use airflow_task_sdk::{
     definitions::DagBag,
     execution::{
-        ExecutionError, ExecutionResultTIState, LocalTaskRuntime, StartupDetails, TaskHandle,
-        TaskRunner, supervise,
+        ExecutionError, LocalSupervisorComms, LocalTaskHandle, LocalTaskRuntime, ServiceResult,
+        StartupDetails, SupervisorCommsError, TaskRunner, ToSupervisor, ToTask, supervise,
     },
 };
 use embassy_executor::Spawner;
-use embassy_futures::select::{Either, select};
+use embassy_futures::select::{Either, Either3, select, select3};
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     channel::{Channel, Receiver, Sender},
@@ -31,21 +26,19 @@ use embassy_sync::{
 use embassy_time::{Duration, Instant, Timer};
 use log::{debug, info};
 
-use crate::{
-    CONFIG, EVENTS, EspExecutionApiClient, EspExecutionApiClientFactory, EspTimeProvider, Event,
-    TIME_PROVIDER,
-};
+use crate::{CONFIG, EVENTS, EspExecutionApiClientFactory, EspTimeProvider, Event, TIME_PROVIDER};
 
 const INTERCOM_BUFFER_SIZE: usize = 8;
 static INTERCOM: Channel<CriticalSectionRawMutex, IntercomMessage, INTERCOM_BUFFER_SIZE> =
     Channel::new();
 static RESULT_SIGNAL: Signal<CriticalSectionRawMutex, bool> = Signal::new();
 static ABORT_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
-static TASK_RESULT_SIGNAL: Signal<
-    CriticalSectionRawMutex,
-    Result<ExecutionResultTIState, ExecutionError<EspExecutionApiClient>>,
-> = Signal::new();
+static TASK_RESULT_SIGNAL: Signal<CriticalSectionRawMutex, Result<(), ExecutionError>> =
+    Signal::new();
 static TASK_ABORT_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+static TO_SUPERVISOR: Signal<CriticalSectionRawMutex, ToSupervisor> = Signal::new();
+static TO_TASK: Signal<CriticalSectionRawMutex, Result<ToTask, SupervisorCommsError>> =
+    Signal::new();
 
 pub struct EmbassyEdgeJob {
     ti_key: TaskInstanceKey,
@@ -145,16 +138,13 @@ async fn launch(
 async fn task_runner(
     details: StartupDetails,
     dag_bag: &'static DagBag,
-    client: EspExecutionApiClient,
+    comms: EmbassySupervisorComms,
     time_provider: EspTimeProvider,
-    result_signal: &'static Signal<
-        CriticalSectionRawMutex,
-        Result<ExecutionResultTIState, ExecutionError<EspExecutionApiClient>>,
-    >,
+    result_signal: &'static Signal<CriticalSectionRawMutex, Result<(), ExecutionError>>,
     abort_signal: &'static Signal<CriticalSectionRawMutex, ()>,
 ) {
     let closure = async {
-        let task_runner = TaskRunner::new(client, time_provider);
+        let task_runner = TaskRunner::new(comms, time_provider);
         task_runner.main(details, dag_bag).await
     };
 
@@ -263,27 +253,35 @@ impl LocalWorkerRuntime for EmbassyRuntime<'static> {
 }
 
 pub struct EmbassyTaskHandle {
-    result_signal: &'static Signal<
-        CriticalSectionRawMutex,
-        Result<ExecutionResultTIState, ExecutionError<EspExecutionApiClient>>,
-    >,
+    result_signal: &'static Signal<CriticalSectionRawMutex, Result<(), ExecutionError>>,
     abort_signal: &'static Signal<CriticalSectionRawMutex, ()>,
+    to_supervisor: &'static Signal<CriticalSectionRawMutex, ToSupervisor>,
+    to_task: &'static Signal<CriticalSectionRawMutex, Result<ToTask, SupervisorCommsError>>,
 }
 
-impl TaskHandle<EspExecutionApiClient> for EmbassyTaskHandle {
+impl LocalTaskHandle for EmbassyTaskHandle {
     fn abort(&self) {
         self.abort_signal.signal(());
     }
-}
 
-impl Future for EmbassyTaskHandle {
-    type Output = Result<ExecutionResultTIState, ExecutionError<EspExecutionApiClient>>;
+    async fn service(&mut self, timeout: time::Duration) -> ServiceResult {
+        debug!("Sleeping for {} seconds", timeout.as_secs());
+        let timeout = Duration::from_secs(timeout.as_secs());
+        match select3(
+            Timer::after(timeout),
+            self.result_signal.wait(),
+            self.to_supervisor.wait(),
+        )
+        .await
+        {
+            Either3::First(_) => ServiceResult::None,
+            Either3::Second(r) => ServiceResult::Terminated(r),
+            Either3::Third(r) => ServiceResult::Comms(r),
+        }
+    }
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.get_mut();
-        let mut future = this.result_signal.wait();
-        let future = Pin::new(&mut future);
-        future.poll(cx)
+    async fn respond(&mut self, msg: Result<ToTask, SupervisorCommsError>) {
+        self.to_task.signal(msg);
     }
 }
 
@@ -292,9 +290,8 @@ pub struct EmbassyTaskRuntime<'r> {
     hostname: &'r str,
 }
 
-impl<'r> LocalTaskRuntime<EspExecutionApiClient, EspTimeProvider> for EmbassyTaskRuntime<'r> {
-    type ActivityHandle = EmbassyTaskHandle;
-
+impl<'r> LocalTaskRuntime<EspTimeProvider> for EmbassyTaskRuntime<'r> {
+    type TaskHandle = EmbassyTaskHandle;
     type Instant = Instant;
 
     fn now(&self) -> Self::Instant {
@@ -319,18 +316,23 @@ impl<'r> LocalTaskRuntime<EspExecutionApiClient, EspTimeProvider> for EmbassyTas
 
     fn start(
         &self,
-        client: EspExecutionApiClient,
         time_provider: EspTimeProvider,
         details: StartupDetails,
         dag_bag: &'static DagBag,
-    ) -> Self::ActivityHandle {
+    ) -> Self::TaskHandle {
         TASK_RESULT_SIGNAL.reset();
         TASK_ABORT_SIGNAL.reset();
+        TO_SUPERVISOR.reset();
+        TO_TASK.reset();
+        let comms = EmbassySupervisorComms {
+            send: &TO_SUPERVISOR,
+            recv: &TO_TASK,
+        };
         self.spawner
             .spawn(task_runner(
                 details,
                 dag_bag,
-                client,
+                comms,
                 time_provider,
                 &TASK_RESULT_SIGNAL,
                 &TASK_ABORT_SIGNAL,
@@ -339,19 +341,20 @@ impl<'r> LocalTaskRuntime<EspExecutionApiClient, EspTimeProvider> for EmbassyTas
         EmbassyTaskHandle {
             result_signal: &TASK_RESULT_SIGNAL,
             abort_signal: &TASK_ABORT_SIGNAL,
+            to_supervisor: &TO_SUPERVISOR,
+            to_task: &TO_TASK,
         }
     }
+}
 
-    async fn wait(
-        &self,
-        handle: &mut Self::ActivityHandle,
-        timeout: time::Duration,
-    ) -> Option<Result<ExecutionResultTIState, ExecutionError<EspExecutionApiClient>>> {
-        debug!("Sleeping for {} seconds", timeout.as_secs());
-        let timeout = Duration::from_secs(timeout.as_secs());
-        match select(Timer::after(timeout), handle).await {
-            Either::First(_) => None,
-            Either::Second(r) => Some(r),
-        }
+struct EmbassySupervisorComms {
+    send: &'static Signal<CriticalSectionRawMutex, ToSupervisor>,
+    recv: &'static Signal<CriticalSectionRawMutex, Result<ToTask, SupervisorCommsError>>,
+}
+
+impl LocalSupervisorComms for EmbassySupervisorComms {
+    async fn send(&self, msg: ToSupervisor) -> Result<ToTask, SupervisorCommsError> {
+        self.send.signal(msg);
+        self.recv.wait().await
     }
 }
