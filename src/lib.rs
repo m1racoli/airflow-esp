@@ -15,6 +15,7 @@ macro_rules! mk_static {
 
 use airflow_edge_sdk::worker::WorkerState;
 use core::net::Ipv4Addr;
+use embassy_net::{dns::DnsSocket, tcp::client::TcpClient};
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex, lazy_lock::LazyLock, pubsub::PubSubChannel,
     watch::Watch,
@@ -40,12 +41,14 @@ pub const TCP_TX_BUF_SIZE: usize = RESOURCES.tcp.tx_buf_size as usize;
 
 pub type EspExecutionApiClientFactory = ReqwlessExecutionApiClientFactory<
     'static,
-    NUM_TCP_CONNECTIONS,
-    TCP_TX_BUF_SIZE,
-    TCP_RX_BUF_SIZE,
+    TcpClient<'static, NUM_TCP_CONNECTIONS, TCP_TX_BUF_SIZE, TCP_RX_BUF_SIZE>,
+    DnsSocket<'static>,
 >;
-pub type EspExecutionApiClient =
-    ReqwlessExecutionApiClient<'static, NUM_TCP_CONNECTIONS, TCP_TX_BUF_SIZE, TCP_RX_BUF_SIZE>;
+pub type EspExecutionApiClient = ReqwlessExecutionApiClient<
+    'static,
+    TcpClient<'static, NUM_TCP_CONNECTIONS, TCP_TX_BUF_SIZE, TCP_RX_BUF_SIZE>,
+    DnsSocket<'static>,
+>;
 pub type EspTimeProvider = OffsetWatchTimeProvider<'static, CriticalSectionRawMutex, 1>;
 
 pub static EVENTS: PubSubChannel<CriticalSectionRawMutex, Event, 8, 2, 3> = PubSubChannel::new();

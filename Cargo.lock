@@ -80,6 +80,7 @@ dependencies = [
  "embedded-iconoir",
  "embedded-io",
  "embedded-io-async",
+ "embedded-nal-async",
  "esp-alloc",
  "esp-backtrace",
  "esp-bootloader-esp-idf",

@@ -9,8 +9,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::convert::Infallible;
 use core::fmt::Display;
-use embassy_net::dns::DnsSocket;
-use embassy_net::tcp::client::TcpClient;
+use embedded_nal_async::{Dns, TcpConnect};
 use reqwless::client::HttpClient;
 use reqwless::headers::ContentType;
 use reqwless::request::{Method, RequestBody, RequestBuilder};
@@ -19,39 +18,39 @@ use serde::de::DeserializeOwned;
 
 use crate::HTTP_RX_BUF_SIZE;
 
-#[derive(Clone)]
-pub struct ReqwlessExecutionApiClientFactory<'a, const N: usize, const TX: usize, const RX: usize> {
-    tcp_client: &'a TcpClient<'a, N, TX, RX>,
-    dns_socket: &'a DnsSocket<'a>,
+pub struct ReqwlessExecutionApiClientFactory<'a, T: TcpConnect + 'a, D: Dns + 'a> {
+    tcp: &'a T,
+    dns: &'a D,
 }
 
-impl<'a, const N: usize, const TX: usize, const RX: usize>
-    ReqwlessExecutionApiClientFactory<'a, N, TX, RX>
-{
-    pub fn new(tcp_client: &'a TcpClient<'a, N, TX, RX>, dns_socket: &'a DnsSocket<'a>) -> Self {
+impl<'a, T: TcpConnect + 'a, D: Dns + 'a> Clone for ReqwlessExecutionApiClientFactory<'a, T, D> {
+    fn clone(&self) -> Self {
         Self {
-            tcp_client,
-            dns_socket,
+            tcp: self.tcp,
+            dns: self.dns,
         }
     }
 }
 
-impl<'a, const N: usize, const TX: usize, const RX: usize> LocalExecutionApiClientFactory
-    for ReqwlessExecutionApiClientFactory<'a, N, TX, RX>
+impl<'a, T: TcpConnect + 'a, D: Dns + 'a> ReqwlessExecutionApiClientFactory<'a, T, D> {
+    pub fn new(tcp: &'a T, dns: &'a D) -> Self {
+        Self { tcp, dns }
+    }
+}
+
+impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClientFactory
+    for ReqwlessExecutionApiClientFactory<'a, T, D>
 {
     type Error = Infallible;
-    type Client = ReqwlessExecutionApiClient<'a, N, TX, RX>;
+    type Client = ReqwlessExecutionApiClient<'a, T, D>;
 
     fn create(
         &self,
         base_url: &str,
         token: &SecretString,
-    ) -> Result<ReqwlessExecutionApiClient<'a, N, TX, RX>, Infallible> {
+    ) -> Result<ReqwlessExecutionApiClient<'a, T, D>, Infallible> {
         Ok(ReqwlessExecutionApiClient::new(
-            self.tcp_client,
-            self.dns_socket,
-            base_url,
-            token,
+            self.tcp, self.dns, base_url, token,
         ))
     }
 }
@@ -66,22 +65,15 @@ pub enum ReqwlessExecutionApiError {
     Http(u16, String),
 }
 
-pub struct ReqwlessExecutionApiClient<'a, const N: usize, const TX: usize, const RX: usize> {
-    client: HttpClient<'a, TcpClient<'a, N, TX, RX>, DnsSocket<'a>>,
+pub struct ReqwlessExecutionApiClient<'a, T: TcpConnect + 'a, D: Dns + 'a> {
+    client: HttpClient<'a, T, D>,
     base_url: String,
     token: SecretString,
 }
 
-impl<'a, const N: usize, const TX: usize, const RX: usize>
-    ReqwlessExecutionApiClient<'a, N, TX, RX>
-{
-    pub fn new(
-        tcp_client: &'a TcpClient<'a, N, TX, RX>,
-        dns_socket: &'a DnsSocket<'a>,
-        base_url: &str,
-        token: &SecretString,
-    ) -> Self {
-        let client = HttpClient::new(tcp_client, dns_socket);
+impl<'a, T: TcpConnect + 'a, D: Dns + 'a> ReqwlessExecutionApiClient<'a, T, D> {
+    pub fn new(tcp: &'a T, dns: &'a D, base_url: &str, token: &SecretString) -> Self {
+        let client = HttpClient::new(tcp, dns);
 
         Self {
             client,
@@ -90,12 +82,12 @@ impl<'a, const N: usize, const TX: usize, const RX: usize>
         }
     }
 
-    async fn request<'buf, T: RequestBody>(
+    async fn request<'buf, B: RequestBody>(
         &mut self,
         rx_buf: &'buf mut [u8],
         method: Method,
         path: &str,
-        body: Option<T>,
+        body: Option<B>,
     ) -> Result<&'buf [u8], ExecutionApiError<ReqwlessExecutionApiError>> {
         let url = format!("{}/{}", self.base_url, path);
         let auth = format!("Bearer {}", self.token.secret());
@@ -162,21 +154,21 @@ impl<'a, const N: usize, const TX: usize, const RX: usize>
         }
     }
 
-    fn serialize<T: Serialize>(
-        data: &T,
+    fn serialize<B: Serialize>(
+        data: &B,
     ) -> Result<Vec<u8>, ExecutionApiError<ReqwlessExecutionApiError>> {
         Ok(serde_json::to_vec(data).map_err(ReqwlessExecutionApiError::Serde)?)
     }
 
-    fn deserialize<T: DeserializeOwned>(
+    fn deserialize<B: DeserializeOwned>(
         data: &[u8],
-    ) -> Result<T, ExecutionApiError<ReqwlessExecutionApiError>> {
+    ) -> Result<B, ExecutionApiError<ReqwlessExecutionApiError>> {
         Ok(serde_json::from_slice(data).map_err(ReqwlessExecutionApiError::Serde)?)
     }
 }
 
-impl<'a, const N: usize, const TX: usize, const RX: usize> LocalExecutionApiClient
-    for ReqwlessExecutionApiClient<'a, N, TX, RX>
+impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
+    for ReqwlessExecutionApiClient<'a, T, D>
 {
     type Error = ReqwlessExecutionApiError;
 
@@ -262,11 +254,11 @@ impl<'a, const N: usize, const TX: usize, const RX: usize> LocalExecutionApiClie
 
     #[doc = " Tell the API server that this TI has been deferred."]
     #[allow(clippy::too_many_arguments)]
-    async fn task_instances_defer<T: Serialize + Sync, NK: Serialize + Sync>(
+    async fn task_instances_defer<B: Serialize + Sync, NK: Serialize + Sync>(
         &mut self,
         _id: &UniqueTaskInstanceId,
         _classpath: &str,
-        _trigger_kwargs: &T,
+        _trigger_kwargs: &B,
         _trigger_timeout: u64,
         _next_method: &str,
         _next_kwargs: &NK,

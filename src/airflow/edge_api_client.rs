@@ -8,8 +8,7 @@ use airflow_edge_sdk::models::{EdgeWorkerState, SysInfo};
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use embassy_net::dns::DnsSocket;
-use embassy_net::tcp::client::TcpClient;
+use embedded_nal_async::{Dns, TcpConnect};
 use reqwless::client::HttpClient;
 use reqwless::headers::ContentType;
 use reqwless::request::{Method, RequestBody, RequestBuilder};
@@ -30,37 +29,24 @@ pub enum ReqwlessEdgeApiError<J: Error> {
     Http(u16, String),
 }
 
-pub struct ReqwlessEdgeApiClient<
-    'a,
-    J: JWTGenerator,
-    const N: usize,
-    const TX: usize,
-    const RX: usize,
-> {
-    client: HttpClient<'a, TcpClient<'a, N, TX, RX>, DnsSocket<'a>>,
+pub struct ReqwlessEdgeApiClient<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> {
+    client: HttpClient<'a, T, D>,
     base_url: String,
     jwt_generator: J,
-    _tcp_client: &'a TcpClient<'a, N, TX, RX>,
-    _dns_socket: &'a DnsSocket<'a>,
+    tcp: &'a T,
+    dns: &'a D,
 }
 
-impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize>
-    ReqwlessEdgeApiClient<'a, J, N, TX, RX>
-{
-    pub fn new(
-        tcp_client: &'a TcpClient<'a, N, TX, RX>,
-        dns_socket: &'a DnsSocket<'a>,
-        base_url: &str,
-        jwt_generator: J,
-    ) -> Self {
-        let client = HttpClient::new(tcp_client, dns_socket);
+impl<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> ReqwlessEdgeApiClient<'a, J, T, D> {
+    pub fn new(tcp: &'a T, dns: &'a D, base_url: &str, jwt_generator: J) -> Self {
+        let client = HttpClient::new(tcp, dns);
 
         Self {
             client,
             base_url: base_url.into(),
             jwt_generator,
-            _tcp_client: tcp_client,
-            _dns_socket: dns_socket,
+            tcp,
+            dns,
         }
     }
 
@@ -70,12 +56,12 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize>
             .map_err(ReqwlessEdgeApiError::JWT)
     }
 
-    async fn request<'buf, T: RequestBody>(
+    async fn request<'buf, B: RequestBody>(
         &mut self,
         rx_buf: &'buf mut [u8],
         method: Method,
         path: &str,
-        body: Option<T>,
+        body: Option<B>,
     ) -> Result<&'buf [u8], EdgeApiError<ReqwlessEdgeApiError<J::Error>>> {
         let url = format!("{}/{}", self.base_url, path);
         let token = self.token(path)?;
@@ -121,21 +107,21 @@ impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize>
         Ok(body)
     }
 
-    fn serialize<T: Serialize>(
-        data: &T,
+    fn serialize<B: Serialize>(
+        data: &B,
     ) -> Result<Vec<u8>, EdgeApiError<ReqwlessEdgeApiError<J::Error>>> {
         Ok(serde_json::to_vec(data).map_err(ReqwlessEdgeApiError::Serde)?)
     }
 
-    fn deserialize<T: DeserializeOwned>(
+    fn deserialize<B: DeserializeOwned>(
         data: &[u8],
-    ) -> Result<T, EdgeApiError<ReqwlessEdgeApiError<J::Error>>> {
+    ) -> Result<B, EdgeApiError<ReqwlessEdgeApiError<J::Error>>> {
         Ok(serde_json::from_slice(data).map_err(ReqwlessEdgeApiError::Serde)?)
     }
 }
 
-impl<'a, J: JWTGenerator, const N: usize, const TX: usize, const RX: usize> LocalEdgeApiClient
-    for ReqwlessEdgeApiClient<'a, J, N, TX, RX>
+impl<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> LocalEdgeApiClient
+    for ReqwlessEdgeApiClient<'a, J, T, D>
 {
     type Error = ReqwlessEdgeApiError<J::Error>;
 
@@ -313,13 +299,13 @@ struct WorkerStateBody<'a> {
     maintenance_comments: Option<&'a str>,
 }
 
-impl<'a, J: JWTGenerator + Clone, const N: usize, const TX: usize, const RX: usize> Clone
-    for ReqwlessEdgeApiClient<'a, J, N, TX, RX>
+impl<'a, J: JWTGenerator + Clone, T: TcpConnect + 'a, D: Dns + 'a> Clone
+    for ReqwlessEdgeApiClient<'a, J, T, D>
 {
     fn clone(&self) -> Self {
         Self::new(
-            self._tcp_client,
-            self._dns_socket,
+            self.tcp,
+            self.dns,
             &self.base_url,
             self.jwt_generator.clone(),
         )
