@@ -142,7 +142,7 @@ async fn task_runner(
     abort_signal: &'static Signal<CriticalSectionRawMutex, ()>,
 ) {
     let closure = async {
-        let task_runner: TaskRunner<_, EmbassyTaskRuntime> = TaskRunner::new(comms, time_provider);
+        let task_runner: TaskRunner<EmbassyTaskRuntime> = TaskRunner::new(comms, time_provider);
         task_runner.main(details, dag_bag).await
     };
 
@@ -289,6 +289,7 @@ impl<'r> LocalTaskRuntime for EmbassyTaskRuntime<'r> {
     type TaskHandle = EmbassyTaskHandle;
     type Instant = Instant;
     type TimeProvider = EspTimeProvider;
+    type Comms = EmbassySupervisorComms;
 
     fn now(&self) -> Self::Instant {
         Instant::now()
@@ -342,7 +343,7 @@ impl<'r> LocalTaskRuntime for EmbassyTaskRuntime<'r> {
     }
 }
 
-struct EmbassySupervisorComms {
+pub struct EmbassySupervisorComms {
     send: &'static Signal<CriticalSectionRawMutex, ToSupervisor>,
     recv: &'static Signal<CriticalSectionRawMutex, Result<ToTask, SupervisorCommsError>>,
 }
