@@ -142,7 +142,7 @@ async fn task_runner(
     abort_signal: &'static Signal<CriticalSectionRawMutex, ()>,
 ) {
     let closure = async {
-        let task_runner = TaskRunner::new(comms, time_provider);
+        let task_runner: TaskRunner<_, EmbassyTaskRuntime> = TaskRunner::new(comms, time_provider);
         task_runner.main(details, dag_bag).await
     };
 
