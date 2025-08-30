@@ -10,6 +10,7 @@ use alloc::vec::Vec;
 use core::convert::Infallible;
 use core::fmt::Display;
 use embedded_nal_async::{Dns, TcpConnect};
+use log::debug;
 use reqwless::client::HttpClient;
 use reqwless::headers::ContentType;
 use reqwless::request::{Method, RequestBuilder};
@@ -63,6 +64,8 @@ pub enum ReqwlessExecutionApiError {
     Serde(serde_json::Error),
     #[error("Http error {0}: {1}")]
     Http(u16, String),
+    #[error("Failed to decode UTF-8: {0}")]
+    Utf8(#[from] core::str::Utf8Error),
 }
 
 pub struct ReqwlessExecutionApiClient<'a, T: TcpConnect + 'a, D: Dns + 'a> {
@@ -134,6 +137,66 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> ReqwlessExecutionApiClient<'a, T, D> {
             .map_err(ReqwlessExecutionApiError::Reqwless)?;
 
         Ok(body)
+    }
+
+    /// like request, but only returns the value of a specific header
+    async fn request_header(
+        &mut self,
+        rx_buf: &mut [u8],
+        method: Method,
+        path: &str,
+        body: Option<&[u8]>,
+        header: &str,
+    ) -> Result<Option<String>, ExecutionApiError<ReqwlessExecutionApiError>> {
+        let url = format!("{}/{}", self.base_url, path);
+        let auth = format!("Bearer {}", self.token.secret());
+        let headers = [
+            ("accept", "application/json"),
+            ("authorization", auth.as_str()),
+        ];
+
+        let mut handle = self
+            .client
+            .request(method, &url)
+            .await
+            .map_err(ReqwlessExecutionApiError::Reqwless)?
+            .headers(&headers);
+
+        if body.is_some() {
+            handle = handle.content_type(ContentType::ApplicationJson);
+        }
+
+        let mut handle = handle.body(body);
+
+        let response = handle
+            .send(rx_buf)
+            .await
+            .map_err(ReqwlessExecutionApiError::Reqwless)?;
+
+        if !response.status.is_successful() {
+            let code = response.status.0;
+            let msg = match response.body().read_to_end().await {
+                Ok(v) => core::str::from_utf8(v).unwrap_or("").to_string(),
+                Err(e) => Err(ReqwlessExecutionApiError::Reqwless(e))?,
+            };
+            return match code {
+                404 => Err(ExecutionApiError::NotFound(msg))?,
+                409 => Err(ExecutionApiError::Conflict(msg))?,
+                code => Err(ReqwlessExecutionApiError::Http(code, msg))?,
+            };
+        }
+
+        for (key, value) in response.headers() {
+            if key.eq_ignore_ascii_case(header) {
+                return Ok(Some(
+                    str::from_utf8(value)
+                        .map_err(ReqwlessExecutionApiError::Utf8)?
+                        .to_string(),
+                ));
+            }
+        }
+
+        Ok(None)
     }
 
     fn query<K: Display, V: Display>(path: String, query: &[(K, V)]) -> String {
@@ -289,9 +352,19 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         let body = TIHeartbeatInfoBody { hostname, pid };
         let body = Self::serialize(&body)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request(&mut rx_buf, Method::PUT, &path, Some(&body))
-            .await?;
-        // TODO handle token renewal
+        if let Some(value) = self
+            .request_header(
+                &mut rx_buf,
+                Method::PUT,
+                &path,
+                Some(&body),
+                "Refreshed-API-Token",
+            )
+            .await?
+        {
+            self.token = value.into();
+            debug!("Updated API token from API server");
+        }
         Ok(())
     }
 
@@ -377,8 +450,27 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
     ) -> Result<usize, ExecutionApiError<Self::Error>> {
         let path = format!("xcoms/{dag_id}/{run_id}/{task_id}/{key}");
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request(&mut rx_buf, Method::HEAD, &path, None).await?;
-        todo!()
+        let value = match self
+            .request_header(&mut rx_buf, Method::HEAD, &path, None, "Content-Range")
+            .await?
+        {
+            Some(value) => {
+                if let Some(v) = value.strip_prefix("map_indexes ") {
+                    v.parse::<usize>().ok()
+                } else {
+                    None
+                }
+            }
+            None => None,
+        };
+
+        match value {
+            Some(v) => Ok(v),
+            None => Err(ExecutionApiError::Other(format!(
+                "Unable to parse Content-Range header from HEAD {}",
+                path
+            ))),
+        }
     }
 
     async fn xcoms_get(
