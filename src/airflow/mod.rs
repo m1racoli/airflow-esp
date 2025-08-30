@@ -10,4 +10,5 @@ pub use execution_api_client::ReqwlessExecutionApiClientFactory;
 pub use execution_api_client::ReqwlessExecutionApiError;
 pub use runtime::EmbassyIntercom;
 pub use runtime::EmbassyRuntime;
+pub use runtime::EmbassyTaskRuntime;
 pub use time_provider::OffsetWatchTimeProvider;

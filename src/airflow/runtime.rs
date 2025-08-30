@@ -99,9 +99,9 @@ impl LocalIntercom for EmbassyIntercom {
 async fn launch(
     task: ExecuteTask,
     intercom: EmbassyIntercom,
-    dag_bag: &'static DagBag,
+    dag_bag: &'static DagBag<EmbassyTaskRuntime>,
     client_factory: EspExecutionApiClientFactory,
-    runtime: EmbassyTaskRuntime<'static>,
+    runtime: EmbassyTaskRuntime,
     result_signal: &'static Signal<CriticalSectionRawMutex, bool>,
     abort_signal: &'static Signal<CriticalSectionRawMutex, ()>,
 ) {
@@ -135,7 +135,7 @@ async fn launch(
 #[embassy_executor::task(pool_size = 1)]
 async fn task_runner(
     details: StartupDetails,
-    dag_bag: &'static DagBag,
+    dag_bag: &'static DagBag<EmbassyTaskRuntime>,
     comms: EmbassySupervisorComms,
     time_provider: EspTimeProvider,
     result_signal: &'static Signal<CriticalSectionRawMutex, Result<(), ExecutionError>>,
@@ -183,6 +183,7 @@ impl<'r> EmbassyRuntime<'r> {
 impl LocalWorkerRuntime for EmbassyRuntime<'static> {
     type Job = EmbassyEdgeJob;
     type Intercom = EmbassyIntercom;
+    type TaskRuntime = EmbassyTaskRuntime;
 
     async fn sleep(&mut self, duration: time::Duration) -> Option<IntercomMessage> {
         debug!("Sleeping for {} seconds", duration.as_secs());
@@ -201,7 +202,11 @@ impl LocalWorkerRuntime for EmbassyRuntime<'static> {
         EmbassyIntercom(self.send)
     }
 
-    fn launch(&self, job: EdgeJobFetched, dag_bag: &'static DagBag) -> Self::Job {
+    fn launch(
+        &self,
+        job: EdgeJobFetched,
+        dag_bag: &'static DagBag<EmbassyTaskRuntime>,
+    ) -> Self::Job {
         let ti_key = job.ti_key();
         let intercom = self.intercom();
 
@@ -280,12 +285,12 @@ impl LocalTaskHandle for EmbassyTaskHandle {
     }
 }
 
-pub struct EmbassyTaskRuntime<'r> {
+pub struct EmbassyTaskRuntime {
     spawner: Spawner,
-    hostname: &'r str,
+    hostname: &'static str,
 }
 
-impl<'r> LocalTaskRuntime for EmbassyTaskRuntime<'r> {
+impl LocalTaskRuntime for EmbassyTaskRuntime {
     type TaskHandle = EmbassyTaskHandle;
     type Instant = Instant;
     type TimeProvider = EspTimeProvider;
@@ -311,7 +316,7 @@ impl<'r> LocalTaskRuntime for EmbassyTaskRuntime<'r> {
         0
     }
 
-    fn start(&self, details: StartupDetails, dag_bag: &'static DagBag) -> Self::TaskHandle {
+    fn start(&self, details: StartupDetails, dag_bag: &'static DagBag<Self>) -> Self::TaskHandle {
         TASK_RESULT_SIGNAL.reset();
         TASK_ABORT_SIGNAL.reset();
         TO_SUPERVISOR.reset();
