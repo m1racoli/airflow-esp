@@ -1,4 +1,4 @@
-use airflow_task_sdk::definitions::{Context, Dag, DagBag, Operator, Task, TaskError};
+use airflow_task_sdk::definitions::{Context, Dag, DagBag, Operator, TaskError};
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Timer};
 use log::{info, warn};
@@ -27,10 +27,9 @@ impl Operator for ExampleOperator {
 }
 
 static DAG_BAG: LazyLock<DagBag> = LazyLock::new(|| {
-    let operator = ExampleOperator::default();
-    let t = Task::new("run", operator);
+    let task = ExampleOperator::default().into_task("run");
     let mut dag = Dag::new("example_dag");
-    dag.add_task(t);
+    dag.add_task(task);
     let mut dag_bag = DagBag::default();
     dag_bag.add_dag(dag);
     dag_bag
