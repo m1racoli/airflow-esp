@@ -1,6 +1,6 @@
 use airflow_task_sdk::{
     definitions::{Context, Dag, DagBag, Operator, TaskError},
-    execution::LocalTaskRuntime,
+    execution::TaskRuntime,
 };
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Timer};
@@ -13,7 +13,7 @@ pub struct ExampleOperator {
     cnt: i32,
 }
 
-impl<R: LocalTaskRuntime> Operator<R> for ExampleOperator {
+impl<R: TaskRuntime> Operator<R> for ExampleOperator {
     type Item = i32;
 
     async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Item, TaskError> {

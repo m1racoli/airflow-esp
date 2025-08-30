@@ -11,8 +11,8 @@ use airflow_edge_sdk::{
 use airflow_task_sdk::{
     definitions::DagBag,
     execution::{
-        ExecutionError, LocalSupervisorComms, LocalTaskHandle, LocalTaskRuntime, ServiceResult,
-        StartupDetails, SupervisorCommsError, TaskRunner, ToSupervisor, ToTask, supervise,
+        ExecutionError, LocalSupervisorComms, LocalTaskHandle, ServiceResult, StartupDetails,
+        SupervisorCommsError, TaskRunner, TaskRuntime, ToSupervisor, ToTask, supervise,
     },
 };
 use embassy_executor::Spawner;
@@ -290,7 +290,7 @@ pub struct EmbassyTaskRuntime {
     hostname: &'static str,
 }
 
-impl LocalTaskRuntime for EmbassyTaskRuntime {
+impl TaskRuntime for EmbassyTaskRuntime {
     type TaskHandle = EmbassyTaskHandle;
     type Instant = Instant;
     type TimeProvider = EspTimeProvider;
