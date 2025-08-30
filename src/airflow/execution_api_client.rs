@@ -4,6 +4,7 @@ use airflow_common::utils::{MapIndex, SecretString, TaskInstanceState, TerminalT
 use airflow_task_sdk::api::{
     ExecutionApiError, LocalExecutionApiClient, LocalExecutionApiClientFactory, datamodels::*,
 };
+use airflow_task_sdk::definitions::serde::JsonValue;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
