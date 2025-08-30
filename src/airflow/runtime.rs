@@ -11,7 +11,7 @@ use airflow_edge_sdk::{
 use airflow_task_sdk::{
     definitions::DagBag,
     execution::{
-        ExecutionError, LocalSupervisorComms, ServiceResult, StartupDetails, SupervisorCommsError,
+        ExecutionError, ServiceResult, StartupDetails, SupervisorComms, SupervisorCommsError,
         TaskHandle, TaskRunner, TaskRuntime, ToSupervisor, ToTask, supervise,
     },
 };
@@ -353,7 +353,7 @@ pub struct EmbassySupervisorComms {
     recv: &'static Signal<CriticalSectionRawMutex, Result<ToTask, SupervisorCommsError>>,
 }
 
-impl LocalSupervisorComms for EmbassySupervisorComms {
+impl SupervisorComms for EmbassySupervisorComms {
     async fn send(&self, msg: ToSupervisor) -> Result<ToTask, SupervisorCommsError> {
         self.send.signal(msg);
         self.recv.wait().await
