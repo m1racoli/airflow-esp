@@ -1,10 +1,10 @@
 use airflow_common::datetime::UtcDateTime;
 use airflow_common::executors::UniqueTaskInstanceId;
+use airflow_common::serialization::serde::JsonValue;
 use airflow_common::utils::{MapIndex, SecretString, TaskInstanceState, TerminalTIStateNonSuccess};
 use airflow_task_sdk::api::{
     ExecutionApiError, LocalExecutionApiClient, LocalExecutionApiClientFactory, datamodels::*,
 };
-use airflow_task_sdk::definitions::serde::JsonValue;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;

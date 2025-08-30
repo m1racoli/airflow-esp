@@ -45,6 +45,7 @@ dependencies = [
  "chrono",
  "jwt-compact",
  "serde",
+ "serde_json",
  "thiserror",
  "uuid",
 ]
@@ -108,7 +109,6 @@ dependencies = [
  "cfg-if",
  "log",
  "serde",
- "serde_json",
  "thiserror",
  "trait-variant",
 ]
