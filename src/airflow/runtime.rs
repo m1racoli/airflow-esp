@@ -11,8 +11,8 @@ use airflow_edge_sdk::{
 use airflow_task_sdk::{
     definitions::DagBag,
     execution::{
-        ExecutionError, LocalSupervisorComms, LocalTaskHandle, ServiceResult, StartupDetails,
-        SupervisorCommsError, TaskRunner, TaskRuntime, ToSupervisor, ToTask, supervise,
+        ExecutionError, LocalSupervisorComms, ServiceResult, StartupDetails, SupervisorCommsError,
+        TaskHandle, TaskRunner, TaskRuntime, ToSupervisor, ToTask, supervise,
     },
 };
 use embassy_executor::Spawner;
@@ -259,7 +259,7 @@ pub struct EmbassyTaskHandle {
     to_task: &'static Signal<CriticalSectionRawMutex, Result<ToTask, SupervisorCommsError>>,
 }
 
-impl LocalTaskHandle for EmbassyTaskHandle {
+impl TaskHandle for EmbassyTaskHandle {
     fn abort(&self) {
         self.abort_signal.signal(());
     }
