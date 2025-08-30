@@ -12,7 +12,7 @@ use core::fmt::Display;
 use embedded_nal_async::{Dns, TcpConnect};
 use reqwless::client::HttpClient;
 use reqwless::headers::ContentType;
-use reqwless::request::{Method, RequestBody, RequestBuilder};
+use reqwless::request::{Method, RequestBuilder};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -82,12 +82,12 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> ReqwlessExecutionApiClient<'a, T, D> {
         }
     }
 
-    async fn request<'buf, B: RequestBody>(
+    async fn request<'buf>(
         &mut self,
         rx_buf: &'buf mut [u8],
         method: Method,
         path: &str,
-        body: Option<B>,
+        body: Option<&[u8]>,
     ) -> Result<&'buf [u8], ExecutionApiError<ReqwlessExecutionApiError>> {
         let url = format!("{}/{}", self.base_url, path);
         let auth = format!("Bearer {}", self.token.secret());
@@ -192,7 +192,7 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         let body = Self::serialize(&body)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         let response_body = self
-            .request::<&[u8]>(&mut rx_buf, Method::PATCH, &path, Some(&body))
+            .request(&mut rx_buf, Method::PATCH, &path, Some(&body))
             .await?;
         Self::deserialize(response_body)
     }
@@ -213,7 +213,7 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         };
         let body = Self::serialize(&body)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request::<&[u8]>(&mut rx_buf, Method::PATCH, &path, Some(&body))
+        self.request(&mut rx_buf, Method::PATCH, &path, Some(&body))
             .await?;
         Ok(())
     }
@@ -247,7 +247,7 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         };
         let body = Self::serialize(&body)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request::<&[u8]>(&mut rx_buf, Method::PATCH, &path, Some(&body))
+        self.request(&mut rx_buf, Method::PATCH, &path, Some(&body))
             .await?;
         Ok(())
     }
@@ -289,7 +289,7 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         let body = TIHeartbeatInfoBody { hostname, pid };
         let body = Self::serialize(&body)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request::<&[u8]>(&mut rx_buf, Method::PUT, &path, Some(&body))
+        self.request(&mut rx_buf, Method::PUT, &path, Some(&body))
             .await?;
         // TODO handle token renewal
         Ok(())
@@ -377,8 +377,7 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
     ) -> Result<usize, ExecutionApiError<Self::Error>> {
         let path = format!("xcoms/{dag_id}/{run_id}/{task_id}/{key}");
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request::<&[u8]>(&mut rx_buf, Method::HEAD, &path, None)
-            .await?;
+        self.request(&mut rx_buf, Method::HEAD, &path, None).await?;
         todo!()
     }
 
@@ -401,8 +400,7 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         }
         path = Self::query(path, &query);
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request::<&[u8]>(&mut rx_buf, Method::GET, &path, None)
-            .await?;
+        self.request(&mut rx_buf, Method::GET, &path, None).await?;
         let response: XComResponse = Self::deserialize(&rx_buf)?;
         Ok(response)
     }
@@ -429,7 +427,7 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         path = Self::query(path, &query);
         let body = Self::serialize(value)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
+        self.request(&mut rx_buf, Method::POST, &path, Some(&body))
             .await?;
         Ok(())
     }
@@ -449,7 +447,7 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         }
         path = Self::query(path, &query);
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request::<&[u8]>(&mut rx_buf, Method::DELETE, &path, None)
+        self.request(&mut rx_buf, Method::DELETE, &path, None)
             .await?;
         Ok(())
     }

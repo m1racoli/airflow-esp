@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 use embedded_nal_async::{Dns, TcpConnect};
 use reqwless::client::HttpClient;
 use reqwless::headers::ContentType;
-use reqwless::request::{Method, RequestBody, RequestBuilder};
+use reqwless::request::{Method, RequestBuilder};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -56,12 +56,12 @@ impl<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> ReqwlessEdgeApiClient
             .map_err(ReqwlessEdgeApiError::JWT)
     }
 
-    async fn request<'buf, B: RequestBody>(
+    async fn request<'buf>(
         &mut self,
         rx_buf: &'buf mut [u8],
         method: Method,
         path: &str,
-        body: Option<B>,
+        body: Option<&[u8]>,
     ) -> Result<&'buf [u8], EdgeApiError<ReqwlessEdgeApiError<J::Error>>> {
         let url = format!("{}/{}", self.base_url, path);
         let token = self.token(path)?;
@@ -128,9 +128,7 @@ impl<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> LocalEdgeApiClient
     async fn health(&mut self) -> Result<HealthReturn, EdgeApiError<Self::Error>> {
         let path = "health";
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        let response_body = self
-            .request::<()>(&mut rx_buf, Method::GET, path, None)
-            .await?;
+        let response_body = self.request(&mut rx_buf, Method::GET, path, None).await?;
         Self::deserialize(response_body)
     }
 
@@ -152,7 +150,7 @@ impl<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> LocalEdgeApiClient
         let body = Self::serialize(&body)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         let response_body = self
-            .request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
+            .request(&mut rx_buf, Method::POST, &path, Some(&body))
             .await?;
         Self::deserialize(response_body)
     }
@@ -177,7 +175,7 @@ impl<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> LocalEdgeApiClient
         let body = Self::serialize(&body)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         let response_body = self
-            .request::<&[u8]>(&mut rx_buf, Method::PATCH, &path, Some(&body))
+            .request(&mut rx_buf, Method::PATCH, &path, Some(&body))
             .await?;
         Self::deserialize(response_body)
     }
@@ -196,7 +194,7 @@ impl<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> LocalEdgeApiClient
         let body = Self::serialize(&body)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
         let response_body = self
-            .request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
+            .request(&mut rx_buf, Method::POST, &path, Some(&body))
             .await?;
         Self::deserialize(response_body)
     }
@@ -216,7 +214,7 @@ impl<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> LocalEdgeApiClient
             state
         );
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request::<()>(&mut rx_buf, Method::PATCH, &path, None)
+        self.request(&mut rx_buf, Method::PATCH, &path, None)
             .await?;
         Ok(())
     }
@@ -234,9 +232,7 @@ impl<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> LocalEdgeApiClient
             key.map_index(),
         );
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        let response_body = self
-            .request::<()>(&mut rx_buf, Method::GET, &path, None)
-            .await?;
+        let response_body = self.request(&mut rx_buf, Method::GET, &path, None).await?;
         Self::deserialize(response_body)
     }
 
@@ -260,7 +256,7 @@ impl<'a, J: JWTGenerator, T: TcpConnect + 'a, D: Dns + 'a> LocalEdgeApiClient
         };
         let body = Self::serialize(&body)?;
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
+        self.request(&mut rx_buf, Method::POST, &path, Some(&body))
             .await?;
         Ok(())
     }
