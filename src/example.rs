@@ -1,5 +1,6 @@
 use airflow_task_sdk::{
-    definitions::{Context, Dag, DagBag, Operator, TaskError},
+    bases::operator::Operator,
+    definitions::{Context, Dag, DagBag, TaskError},
     execution::TaskRuntime,
 };
 use embassy_sync::lazy_lock::LazyLock;
