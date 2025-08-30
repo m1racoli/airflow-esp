@@ -8,6 +8,7 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::convert::Infallible;
+use core::fmt::Display;
 use embassy_net::dns::DnsSocket;
 use embassy_net::tcp::client::TcpClient;
 use reqwless::client::HttpClient;
@@ -141,6 +142,24 @@ impl<'a, const N: usize, const TX: usize, const RX: usize>
             .map_err(ReqwlessExecutionApiError::Reqwless)?;
 
         Ok(body)
+    }
+
+    fn query<K: Display, V: Display>(path: String, query: &[(K, V)]) -> String {
+        // TODO use serde_urlencoded
+        if query.is_empty() {
+            path
+        } else {
+            let mut path = path;
+            path.push('?');
+            path.push_str(
+                &query
+                    .iter()
+                    .map(|(k, v)| format!("{k}={v}"))
+                    .collect::<Vec<_>>()
+                    .join("&"),
+            );
+            path
+        }
     }
 
     fn serialize<T: Serialize>(
@@ -355,5 +374,91 @@ impl<'a, const N: usize, const TX: usize, const RX: usize> LocalExecutionApiClie
         _id: &UniqueTaskInstanceId,
     ) -> Result<InactiveAssetsResponse, ExecutionApiError<Self::Error>> {
         todo!()
+    }
+
+    async fn xcoms_head(
+        &mut self,
+        dag_id: &str,
+        run_id: &str,
+        task_id: &str,
+        key: &str,
+    ) -> Result<usize, ExecutionApiError<Self::Error>> {
+        let path = format!("xcoms/{dag_id}/{run_id}/{task_id}/{key}");
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
+        self.request::<&[u8]>(&mut rx_buf, Method::HEAD, &path, None)
+            .await?;
+        todo!()
+    }
+
+    async fn xcoms_get(
+        &mut self,
+        dag_id: &str,
+        run_id: &str,
+        task_id: &str,
+        key: &str,
+        map_index: Option<MapIndex>,
+        include_prior_dates: Option<bool>,
+    ) -> Result<XComResponse, ExecutionApiError<Self::Error>> {
+        let mut path = format!("xcoms/{dag_id}/{run_id}/{task_id}/{key}");
+        let mut query = Vec::new();
+        if let Some(map_index) = map_index {
+            query.push(("map_index", map_index.to_string()));
+        }
+        if let Some(include_prior_dates) = include_prior_dates {
+            query.push(("include_prior_dates", include_prior_dates.to_string()));
+        }
+        path = Self::query(path, &query);
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
+        self.request::<&[u8]>(&mut rx_buf, Method::GET, &path, None)
+            .await?;
+        let response: XComResponse = Self::deserialize(&rx_buf)?;
+        Ok(response)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn xcoms_set(
+        &mut self,
+        dag_id: &str,
+        run_id: &str,
+        task_id: &str,
+        key: &str,
+        value: &JsonValue,
+        map_index: Option<MapIndex>,
+        mapped_length: Option<usize>,
+    ) -> Result<(), ExecutionApiError<Self::Error>> {
+        let mut path = format!("xcoms/{dag_id}/{run_id}/{task_id}/{key}");
+        let mut query = Vec::new();
+        if let Some(map_index) = map_index {
+            query.push(("map_index", map_index.to_string()));
+        }
+        if let Some(mapped_length) = mapped_length {
+            query.push(("mapped_length", mapped_length.to_string()));
+        }
+        path = Self::query(path, &query);
+        let body = Self::serialize(value)?;
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
+        self.request::<&[u8]>(&mut rx_buf, Method::POST, &path, Some(&body))
+            .await?;
+        Ok(())
+    }
+
+    async fn xcoms_delete(
+        &mut self,
+        dag_id: &str,
+        run_id: &str,
+        task_id: &str,
+        key: &str,
+        map_index: Option<MapIndex>,
+    ) -> Result<(), ExecutionApiError<Self::Error>> {
+        let mut path = format!("xcoms/{dag_id}/{run_id}/{task_id}/{key}");
+        let mut query = Vec::new();
+        if let Some(map_index) = map_index {
+            query.push(("map_index", map_index.to_string()));
+        }
+        path = Self::query(path, &query);
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
+        self.request::<&[u8]>(&mut rx_buf, Method::DELETE, &path, None)
+            .await?;
+        Ok(())
     }
 }
