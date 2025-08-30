@@ -102,7 +102,6 @@ async fn launch(
     dag_bag: &'static DagBag,
     client_factory: EspExecutionApiClientFactory,
     runtime: EmbassyTaskRuntime<'static>,
-    time_provider: EspTimeProvider,
     result_signal: &'static Signal<CriticalSectionRawMutex, bool>,
     abort_signal: &'static Signal<CriticalSectionRawMutex, ()>,
 ) {
@@ -113,7 +112,6 @@ async fn launch(
         supervise(
             task,
             client_factory,
-            time_provider,
             dag_bag,
             &runtime,
             CONFIG.airflow.core.execution_api_server_url, // TODO this should be an argument?
@@ -212,8 +210,6 @@ impl LocalWorkerRuntime for EmbassyRuntime<'static> {
             hostname: self.hostname,
         };
 
-        let time_provider = TIME_PROVIDER.get().clone();
-
         RESULT_SIGNAL.reset();
         ABORT_SIGNAL.reset();
         self.spawner
@@ -223,7 +219,6 @@ impl LocalWorkerRuntime for EmbassyRuntime<'static> {
                 dag_bag,
                 self.client_factory.clone(),
                 runtime,
-                time_provider,
                 &RESULT_SIGNAL,
                 &ABORT_SIGNAL,
             ))
@@ -290,9 +285,10 @@ pub struct EmbassyTaskRuntime<'r> {
     hostname: &'r str,
 }
 
-impl<'r> LocalTaskRuntime<EspTimeProvider> for EmbassyTaskRuntime<'r> {
+impl<'r> LocalTaskRuntime for EmbassyTaskRuntime<'r> {
     type TaskHandle = EmbassyTaskHandle;
     type Instant = Instant;
+    type TimeProvider = EspTimeProvider;
 
     fn now(&self) -> Self::Instant {
         Instant::now()
@@ -314,12 +310,7 @@ impl<'r> LocalTaskRuntime<EspTimeProvider> for EmbassyTaskRuntime<'r> {
         0
     }
 
-    fn start(
-        &self,
-        time_provider: EspTimeProvider,
-        details: StartupDetails,
-        dag_bag: &'static DagBag,
-    ) -> Self::TaskHandle {
+    fn start(&self, details: StartupDetails, dag_bag: &'static DagBag) -> Self::TaskHandle {
         TASK_RESULT_SIGNAL.reset();
         TASK_ABORT_SIGNAL.reset();
         TO_SUPERVISOR.reset();
@@ -333,7 +324,7 @@ impl<'r> LocalTaskRuntime<EspTimeProvider> for EmbassyTaskRuntime<'r> {
                 details,
                 dag_bag,
                 comms,
-                time_provider,
+                self.time_provider().clone(),
                 &TASK_RESULT_SIGNAL,
                 &TASK_ABORT_SIGNAL,
             ))
@@ -344,6 +335,10 @@ impl<'r> LocalTaskRuntime<EspTimeProvider> for EmbassyTaskRuntime<'r> {
             to_supervisor: &TO_SUPERVISOR,
             to_task: &TO_TASK,
         }
+    }
+
+    fn time_provider(&self) -> &Self::TimeProvider {
+        TIME_PROVIDER.get()
     }
 }
 
