@@ -20,7 +20,11 @@ impl<R: TaskRuntime> Operator<R> for ExampleOperator {
     async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Item, TaskError> {
         info!(
             "I am task instance {} {} {} {} {}",
-            ctx.dag_id, ctx.task_id, ctx.run_id, ctx.try_number, ctx.map_index
+            ctx.dag_id(),
+            ctx.task_id(),
+            ctx.run_id(),
+            ctx.try_number(),
+            ctx.map_index()
         );
         info!("I am running with cnt={}", self.cnt);
         // TODO test with more than 5 minutes of heartbeat timeout
