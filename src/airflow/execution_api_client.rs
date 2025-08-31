@@ -491,8 +491,9 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         }
         path = Self::query(path, &query);
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        self.request(&mut rx_buf, Method::GET, &path, None).await?;
-        let response: XComResponse = Self::deserialize(&rx_buf)?;
+        // TODO handle not found
+        let response_body = self.request(&mut rx_buf, Method::GET, &path, None).await?;
+        let response: XComResponse = Self::deserialize(response_body)?;
         Ok(response)
     }
 
