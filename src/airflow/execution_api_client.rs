@@ -63,8 +63,6 @@ pub enum ReqwlessExecutionApiError {
     Reqwless(reqwless::Error),
     #[error(transparent)]
     Serde(serde_json::Error),
-    #[error("Http error {0}: {1}")]
-    Http(u16, String),
     #[error("Failed to decode UTF-8: {0}")]
     Utf8(#[from] core::str::Utf8Error),
 }
@@ -127,7 +125,7 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> ReqwlessExecutionApiClient<'a, T, D> {
             return match code {
                 404 => Err(ExecutionApiError::NotFound(msg))?,
                 409 => Err(ExecutionApiError::Conflict(msg))?,
-                code => Err(ReqwlessExecutionApiError::Http(code, msg))?,
+                code => Err(ExecutionApiError::Http(code, url.clone(), msg))?,
             };
         }
 
@@ -183,7 +181,7 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> ReqwlessExecutionApiClient<'a, T, D> {
             return match code {
                 404 => Err(ExecutionApiError::NotFound(msg))?,
                 409 => Err(ExecutionApiError::Conflict(msg))?,
-                code => Err(ReqwlessExecutionApiError::Http(code, msg))?,
+                code => Err(ExecutionApiError::Http(code, url.clone(), msg))?,
             };
         }
 
