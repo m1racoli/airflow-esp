@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 use core::convert::Infallible;
 use core::fmt::Display;
 use embedded_nal_async::{Dns, TcpConnect};
-use log::debug;
+use log::{debug, error};
 use reqwless::client::HttpClient;
 use reqwless::headers::ContentType;
 use reqwless::request::{Method, RequestBuilder};
@@ -491,10 +491,23 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         }
         path = Self::query(path, &query);
         let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
-        // TODO handle not found
-        let response_body = self.request(&mut rx_buf, Method::GET, &path, None).await?;
-        let response: XComResponse = Self::deserialize(response_body)?;
-        Ok(response)
+        match self.request(&mut rx_buf, Method::GET, &path, None).await {
+            Ok(response_body) => {
+                let response: XComResponse = Self::deserialize(response_body)?;
+                Ok(response)
+            }
+            Err(ExecutionApiError::NotFound(detail)) => {
+                error!(
+                    "XCom not found. dag_id: {}, run_id: {}, task_id: {}, key: {}, map_index: {:?}, detail: {}",
+                    dag_id, run_id, task_id, key, map_index, detail
+                );
+                Ok(XComResponse {
+                    key: key.to_string(),
+                    value: JsonValue::Null,
+                })
+            }
+            Err(e) => Err(e),
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
