@@ -23,9 +23,9 @@ impl ExampleOperator {
 }
 
 impl<R: TaskRuntime> Operator<R> for ExampleOperator {
-    type Item = f32;
+    type Output = f32;
 
-    async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Item, TaskError> {
+    async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Output, TaskError> {
         info!(
             "I am task instance {} {} {} {} {}",
             ctx.dag_id(),
@@ -55,9 +55,9 @@ impl PrintXComOperator {
 }
 
 impl<R: TaskRuntime> Operator<R> for PrintXComOperator {
-    type Item = ();
+    type Output = ();
 
-    async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Item, TaskError> {
+    async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Output, TaskError> {
         let ti = ctx.task_instance();
         match ti.xcom().task_id(&self.task_id).pull::<f32>().await {
             Ok(xcom_value) => {
