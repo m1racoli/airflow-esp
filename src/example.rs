@@ -3,13 +3,26 @@ use airflow_task_sdk::{
     definitions::{Context, Dag, DagBag, TaskError},
     execution::TaskRuntime,
 };
-use alloc::string::{String, ToString};
+use alloc::{
+    collections::btree_map::BTreeMap,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use core::f32;
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Timer};
 use log::{error, info, warn};
+use serde::Serialize;
 
 use crate::airflow::EmbassyTaskRuntime;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MultipleOutputs {
+    pi: f32,
+    list: Vec<u32>,
+    map: BTreeMap<String, String>,
+}
 
 #[derive(Debug, Clone)]
 pub struct ExampleOperator {
@@ -23,7 +36,7 @@ impl ExampleOperator {
 }
 
 impl<R: TaskRuntime> Operator<R> for ExampleOperator {
-    type Output = f32;
+    type Output = MultipleOutputs;
 
     async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Output, TaskError> {
         info!(
@@ -37,7 +50,14 @@ impl<R: TaskRuntime> Operator<R> for ExampleOperator {
         Timer::after(Duration::from_secs(self.sleep_secs)).await;
         warn!("This feels very fast! 😎");
         info!("I am done");
-        Ok(f32::consts::PI)
+        let mut map = BTreeMap::new();
+        map.insert("hello".to_string(), "world".to_string());
+        let output = MultipleOutputs {
+            pi: f32::consts::PI,
+            list: vec![1, 2, 3],
+            map,
+        };
+        Ok(output)
     }
 }
 
@@ -59,7 +79,13 @@ impl<R: TaskRuntime> Operator<R> for PrintXComOperator {
 
     async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Output, TaskError> {
         let ti = ctx.task_instance();
-        match ti.xcom().task_id(&self.task_id).pull::<f32>().await {
+        match ti
+            .xcom()
+            .task_id(&self.task_id)
+            .key("pi")
+            .pull::<f32>()
+            .await
+        {
             Ok(xcom_value) => {
                 info!("XCom value: {}", xcom_value);
             }
@@ -72,7 +98,9 @@ impl<R: TaskRuntime> Operator<R> for PrintXComOperator {
 }
 
 static DAG_BAG: LazyLock<DagBag<EmbassyTaskRuntime>> = LazyLock::new(|| {
-    let task = ExampleOperator::new(5).into_task("run");
+    let task = ExampleOperator::new(5)
+        .into_task("run")
+        .with_multiple_outputs(true);
     let print_xcom = PrintXComOperator::new("run").into_task("print_xcom");
     let mut dag = Dag::new("example_dag");
     dag.add_task(task);
