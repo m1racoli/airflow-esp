@@ -345,11 +345,21 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
     #[doc = " Tell the API server that this TI has been rescheduled."]
     async fn task_instances_reschedule(
         &mut self,
-        _id: &UniqueTaskInstanceId,
-        _reschedule_date: &UtcDateTime,
-        _end_date: &UtcDateTime,
+        id: &UniqueTaskInstanceId,
+        reschedule_date: &UtcDateTime,
+        end_date: &UtcDateTime,
     ) -> Result<(), ExecutionApiError<Self::Error>> {
-        todo!()
+        let path = format!("task-instances/{id}/state");
+        let body = TIRescheduleStatePayloadBody {
+            state: TaskInstanceState::UpForReschedule,
+            reschedule_date,
+            end_date,
+        };
+        let body = Self::serialize(&body)?;
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
+        self.request(&mut rx_buf, Method::PATCH, &path, Some(&body))
+            .await?;
+        Ok(())
     }
 
     #[doc = " Tell the API server that this TI is still running and send a heartbeat."]
