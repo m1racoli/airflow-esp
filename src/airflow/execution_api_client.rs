@@ -1,24 +1,27 @@
-use airflow_common::datetime::UtcDateTime;
-use airflow_common::executors::UniqueTaskInstanceId;
-use airflow_common::serialization::serde::JsonValue;
-use airflow_common::utils::{MapIndex, SecretString, TaskInstanceState, TerminalTIStateNonSuccess};
+use crate::HTTP_RX_BUF_SIZE;
+use airflow_common::{
+    datetime::UtcDateTime,
+    executors::UniqueTaskInstanceId,
+    serialization::serde::JsonValue,
+    utils::{MapIndex, SecretString, TaskInstanceState, TerminalTIStateNonSuccess},
+};
 use airflow_task_sdk::api::{
     ExecutionApiError, LocalExecutionApiClient, LocalExecutionApiClientFactory, datamodels::*,
 };
-use alloc::format;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use core::convert::Infallible;
-use core::fmt::Display;
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
+use core::{convert::Infallible, fmt::Display};
 use embedded_nal_async::{Dns, TcpConnect};
 use log::{debug, error};
-use reqwless::client::HttpClient;
-use reqwless::headers::ContentType;
-use reqwless::request::{Method, RequestBuilder};
-use serde::Serialize;
-use serde::de::DeserializeOwned;
-
-use crate::HTTP_RX_BUF_SIZE;
+use reqwless::{
+    client::HttpClient,
+    headers::ContentType,
+    request::{Method, RequestBuilder},
+};
+use serde::{Serialize, de::DeserializeOwned};
 
 pub struct ReqwlessExecutionApiClientFactory<'a, T: TcpConnect + 'a, D: Dns + 'a> {
     tcp: &'a T,
@@ -555,5 +558,52 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
         self.request(&mut rx_buf, Method::DELETE, &path, None)
             .await?;
         Ok(())
+    }
+
+    async fn xcoms_get_sequence_item(
+        &mut self,
+        dag_id: &str,
+        run_id: &str,
+        task_id: &str,
+        key: &str,
+        offset: usize,
+    ) -> Result<JsonValue, ExecutionApiError<Self::Error>> {
+        let path = format!("xcoms/{dag_id}/{run_id}/{task_id}/{key}/item/{offset}");
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
+        let response_body = self.request(&mut rx_buf, Method::GET, &path, None).await?;
+        let response = Self::deserialize(response_body)?;
+        Ok(response)
+    }
+
+    async fn xcoms_get_sequence_slice(
+        &mut self,
+        dag_id: &str,
+        run_id: &str,
+        task_id: &str,
+        key: &str,
+        start: Option<usize>,
+        stop: Option<usize>,
+        step: Option<usize>,
+        include_prior_dates: Option<bool>,
+    ) -> Result<Vec<JsonValue>, ExecutionApiError<Self::Error>> {
+        let path = format!("xcoms/{dag_id}/{run_id}/{task_id}/{key}/slice");
+        let mut query = Vec::new();
+        if let Some(start) = start {
+            query.push(("start", start.to_string()));
+        }
+        if let Some(stop) = stop {
+            query.push(("stop", stop.to_string()));
+        }
+        if let Some(step) = step {
+            query.push(("step", step.to_string()));
+        }
+        if let Some(include_prior_dates) = include_prior_dates {
+            query.push(("include_prior_dates", include_prior_dates.to_string()));
+        }
+        let path = Self::query(path, &query);
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
+        let response_body = self.request(&mut rx_buf, Method::GET, &path, None).await?;
+        let response = Self::deserialize(response_body)?;
+        Ok(response)
     }
 }
