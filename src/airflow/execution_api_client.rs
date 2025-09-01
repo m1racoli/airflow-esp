@@ -519,16 +519,10 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
                 let response: XComResponse = Self::deserialize(response_body)?;
                 Ok(response)
             }
-            Err(ExecutionApiError::NotFound(detail)) => {
-                error!(
-                    "XCom not found. dag_id: {}, run_id: {}, task_id: {}, key: {}, map_index: {:?}, detail: {}",
-                    dag_id, run_id, task_id, key, map_index, detail
-                );
-                Ok(XComResponse {
-                    key: key.to_string(),
-                    value: JsonValue::Null,
-                })
-            }
+            Err(ExecutionApiError::NotFound(_)) => Ok(XComResponse {
+                key: key.to_string(),
+                value: JsonValue::Null,
+            }),
             Err(e) => Err(e),
         }
     }
