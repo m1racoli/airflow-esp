@@ -47,9 +47,13 @@ impl<R: TaskRuntime> Operator<R> for ExampleOperator {
             ctx.try_number(),
             ctx.map_index()
         );
+
+        ctx.task_instance().xcom_push("example_key", &42).await?;
+
         Timer::after(Duration::from_secs(self.sleep_secs)).await;
         warn!("This feels very fast! 😎");
         info!("I am done");
+
         let mut map = BTreeMap::new();
         map.insert("hello".to_string(), "world".to_string());
         let output = MultipleOutputs {
