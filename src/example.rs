@@ -96,14 +96,35 @@ impl<R: TaskRuntime> Operator<R> for PrintXComOperator {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct RetryOperator;
+
+impl<R: TaskRuntime> Operator<R> for RetryOperator {
+    type Output = ();
+
+    async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Output, TaskError> {
+        if ctx.try_number() < 2 {
+            info!("Failing task, attempt {}", ctx.try_number());
+            Err(TaskError::Unknown("Failing task".to_string()))
+        } else {
+            info!("Succeeding task, attempt {}", ctx.try_number());
+            Ok(())
+        }
+    }
+}
+
 static DAG_BAG: LazyLock<DagBag<EmbassyTaskRuntime>> = LazyLock::new(|| {
     let task = ExampleOperator::new(5)
         .into_task("run")
         .with_multiple_outputs(true);
     let print_xcom = PrintXComOperator::new("run").into_task("print_xcom");
+    let retry = RetryOperator.into_task("retry");
+
     let mut dag = Dag::new("example_dag");
     dag.add_task(task);
     dag.add_task(print_xcom);
+    dag.add_task(retry);
+
     let mut dag_bag = DagBag::default();
     dag_bag.add_dag(dag);
     dag_bag
