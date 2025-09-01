@@ -12,7 +12,7 @@ use alloc::{
 use core::f32;
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Timer};
-use log::{error, info, warn};
+use log::{info, warn};
 use serde::Serialize;
 
 use crate::airflow::EmbassyTaskRuntime;
@@ -79,20 +79,19 @@ impl<R: TaskRuntime> Operator<R> for PrintXComOperator {
 
     async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Output, TaskError> {
         let ti = ctx.task_instance();
-        match ti
+
+        let pi: f32 = ti.xcom().task_id(&self.task_id).key("pi").pull().await?;
+        info!("PI is {}", pi);
+
+        // Use Option to handle missing XCom values
+        let non_existing: Option<String> = ti
             .xcom()
             .task_id(&self.task_id)
-            .key("pi")
-            .pull::<f32>()
-            .await
-        {
-            Ok(xcom_value) => {
-                info!("XCom value: {}", xcom_value);
-            }
-            Err(e) => {
-                error!("Failed to pull XCom value: {}", e);
-            }
-        };
+            .key("non_existing")
+            .pull()
+            .await?;
+        info!("Non existing is {:?}", non_existing);
+
         Ok(())
     }
 }
