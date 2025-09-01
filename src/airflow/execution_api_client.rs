@@ -286,11 +286,21 @@ impl<'a, T: TcpConnect + 'a, D: Dns + 'a> LocalExecutionApiClient
     #[doc = " Tell the API server that this TI has failed and reached a up_for_retry state."]
     async fn task_instances_retry(
         &mut self,
-        _id: &UniqueTaskInstanceId,
-        _when: &UtcDateTime,
-        _rendered_map_index: Option<&str>,
+        id: &UniqueTaskInstanceId,
+        when: &UtcDateTime,
+        rendered_map_index: Option<&str>,
     ) -> Result<(), ExecutionApiError<Self::Error>> {
-        todo!()
+        let path = format!("task-instances/{id}/state");
+        let body = TIRetryStatePayloadBody {
+            state: TaskInstanceState::UpForRetry,
+            end_date: when,
+            rendered_map_index,
+        };
+        let body = Self::serialize(&body)?;
+        let mut rx_buf = [0; HTTP_RX_BUF_SIZE];
+        self.request(&mut rx_buf, Method::PATCH, &path, Some(&body))
+            .await?;
+        Ok(())
     }
 
     #[doc = " Tell the API server that this TI has succeeded."]
