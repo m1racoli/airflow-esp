@@ -11,3 +11,9 @@ num_connections = 3
 rx_buf_size = 1024
 tx_buf_size = 1024
 timeout = 10
+
+[tracing]
+# the number of spans which can be stored in the registry at any time
+registry_store_size = 32
+# the number of spans which can be active at any time
+span_stack_size = 32

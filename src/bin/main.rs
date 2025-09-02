@@ -37,7 +37,10 @@ extern crate alloc;
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
-    esp_println::logger::init_logger_from_env();
+    // first allocate heap before we can init tracing
+    esp_alloc::heap_allocator!(size: 72 * 1024);
+
+    airflow_esp::tracing::init_tracing();
 
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
@@ -61,10 +64,6 @@ async fn main(spawner: Spawner) {
     let display = Display::init(i2c).expect("Failed to initialize display");
     spawner.spawn(render(display)).ok();
     info!("Display initialized!");
-
-    // Heap
-    esp_alloc::heap_allocator!(size: 72 * 1024);
-    info!("Heap allocated!");
 
     // Embassy
     let timer0 = SystemTimer::new(peripherals.SYSTIMER);

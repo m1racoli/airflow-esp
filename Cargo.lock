@@ -91,6 +91,8 @@ dependencies = [
  "esp-wifi",
  "heapless 0.8.0",
  "log",
+ "once_cell",
+ "portable-atomic",
  "reqwless",
  "serde",
  "serde_json",
@@ -99,6 +101,9 @@ dependencies = [
  "static-toml",
  "static_cell",
  "thiserror",
+ "tracing",
+ "tracing-core",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2027,6 +2032,47 @@ dependencies = [
  "serde_spanned",
  "toml_datetime",
  "winnow",
+]
+
+[[package]]
+name = "tracing"
+version = "0.2.0"
+source = "git+https://github.com/tokio-rs/tracing.git?branch=v0.2.x#134f9371c67d241d147f9284cf5570135b577dc3"
+dependencies = [
+ "pin-project-lite",
+ "portable-atomic",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-core"
+version = "0.2.0"
+source = "git+https://github.com/tokio-rs/tracing.git?branch=v0.2.x#134f9371c67d241d147f9284cf5570135b577dc3"
+dependencies = [
+ "once_cell",
+ "portable-atomic",
+ "portable-atomic-util",
+]
+
+[[package]]
+name = "tracing-serde"
+version = "0.2.0"
+source = "git+https://github.com/tokio-rs/tracing.git?branch=v0.2.x#134f9371c67d241d147f9284cf5570135b577dc3"
+dependencies = [
+ "serde",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-subscriber"
+version = "0.3.0"
+source = "git+https://github.com/tokio-rs/tracing.git?branch=v0.2.x#134f9371c67d241d147f9284cf5570135b577dc3"
+dependencies = [
+ "portable-atomic-util",
+ "smallvec",
+ "tracing",
+ "tracing-core",
+ "tracing-serde",
 ]
 
 [[package]]
