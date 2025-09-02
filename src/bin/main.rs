@@ -132,7 +132,7 @@ async fn main(spawner: Spawner) {
 
     let client_factory = EspExecutionApiClientFactory::new(tcp_client, dns_socket);
     let runtime = EmbassyRuntime::init(spawner, HOSTNAME, client_factory);
-    spawner.spawn(shutdown_listender(runtime.intercom())).ok();
+    spawner.spawn(shutdown_listener(runtime.intercom())).ok();
     let secret: SecretString = CONFIG.airflow.api_auth.jwt_secret.into();
     let time_provider = TIME_PROVIDER.get().clone();
     let jwt_generator = JWTCompactJWTGenerator::new(secret, "api", time_provider.clone())
@@ -210,7 +210,7 @@ async fn render(mut display: Display<'static, Blocking>) {
 }
 
 #[embassy_executor::task]
-async fn shutdown_listender(intercom: EmbassyIntercom) {
+async fn shutdown_listener(intercom: EmbassyIntercom) {
     let mut subscriber = EVENTS.subscriber().unwrap();
     let mut first = true;
     loop {
