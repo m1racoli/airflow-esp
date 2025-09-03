@@ -1,6 +1,5 @@
 use core::fmt;
 
-use alloc::format;
 use alloc::string::{String, ToString};
 use once_cell::sync::Lazy;
 use tracing::field::Visit;
@@ -204,7 +203,6 @@ fn dispatch_record(record: &log::Record<'_>) {
 
 #[derive(Debug, Default)]
 pub struct LogVisitor {
-    message: Option<String>,
     target: Option<String>,
     module_path: Option<String>,
     file: Option<String>,
@@ -213,10 +211,6 @@ pub struct LogVisitor {
 
 #[allow(dead_code)]
 impl LogVisitor {
-    pub fn message(&self) -> Option<&str> {
-        self.message.as_deref()
-    }
-
     pub fn target(&self) -> Option<&str> {
         self.target.as_deref()
     }
@@ -236,11 +230,7 @@ impl LogVisitor {
 
 // extra fields for log events
 impl Visit for LogVisitor {
-    fn record_debug(&mut self, field: &Field, _value: &dyn fmt::Debug) {
-        if field.name() == "message" {
-            self.message = Some(format!("{:?}", _value));
-        }
-    }
+    fn record_debug(&mut self, _field: &Field, _value: &dyn fmt::Debug) {}
 
     fn record_u64(&mut self, field: &Field, value: u64) {
         if field.name() == "log.line" {
@@ -249,9 +239,7 @@ impl Visit for LogVisitor {
     }
 
     fn record_str(&mut self, field: &Field, value: &str) {
-        if field.name() == "message" {
-            self.message = Some(value.to_string());
-        } else if field.name() == "log.target" {
+        if field.name() == "log.target" {
             self.target = Some(value.to_string());
         } else if field.name() == "log.module_path" {
             self.module_path = Some(value.to_string());

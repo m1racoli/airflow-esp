@@ -12,8 +12,8 @@ use alloc::{
 use core::f32;
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Timer};
-use log::{info, warn};
 use serde::Serialize;
+use tracing::{info, warn};
 
 use crate::airflow::EmbassyTaskRuntime;
 

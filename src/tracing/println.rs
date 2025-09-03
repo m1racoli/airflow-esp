@@ -1,7 +1,8 @@
+use alloc::string::{String, ToString};
 use tracing::Level;
 use tracing_subscriber::{Subscribe, subscribe::Context};
 
-use crate::tracing::{log_tracer::LogVisitor, registry::Registry};
+use crate::tracing::{log_tracer::LogVisitor, registry::Registry, visitor::StringVisitor};
 
 /// A subscriber that prints tracing events to the serial monitor using `esp_println`.
 ///
@@ -34,11 +35,22 @@ fn print_tracing_event(event: &tracing::Event<'_>) {
     };
     let reset = RESET;
 
-    let mut visitor = LogVisitor::default();
-    event.record(&mut visitor);
+    let target = if let Some(module_path) = meta.module_path() {
+        // tracing event
+        module_path.to_string()
+    } else {
+        // log event
+        let mut visitor = LogVisitor::default();
+        event.record(&mut visitor);
+        visitor.target().unwrap_or("unknown").to_string()
+    };
 
-    let target = visitor.target().unwrap_or("unknown");
-    let message = visitor.message().unwrap_or_default();
+    let mut message = String::new();
+    {
+        let mut sv = StringVisitor::new(&mut message, true);
+        event.record(&mut sv);
+        let _ = sv.finish();
+    }
 
     #[cfg(not(feature = "wokwi"))]
     esp_println::println!("{}{} {}: {}{}", color, level, target, message, reset);

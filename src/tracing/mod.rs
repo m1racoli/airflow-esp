@@ -2,6 +2,7 @@ mod log_tracer;
 mod println;
 mod registry;
 mod task_log;
+mod visitor;
 
 use airflow_common::{datetime::UtcDateTime, models::TaskInstanceKey};
 use airflow_edge_sdk::api::LocalEdgeApiClient;

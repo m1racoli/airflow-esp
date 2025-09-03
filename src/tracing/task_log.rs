@@ -14,7 +14,7 @@ use tracing_subscriber::{
     subscribe::Context,
 };
 
-use crate::tracing::{log_tracer::LogVisitor, registry::get_ti_key};
+use crate::tracing::{log_tracer::LogVisitor, registry::get_ti_key, visitor::StringVisitor};
 
 #[derive(Debug, Default)]
 pub struct TaskInstanceKeyVisitor {
@@ -184,7 +184,6 @@ impl<S: TaskLogSender, T: TimeProvider> TaskLogSubscriber<S, T> {
     ) -> Result<String, fmt::Error> {
         let meta = event.metadata();
         let mut buf = String::new();
-        let mut message: Option<String> = None;
 
         write!(buf, "{}", now.format("%Y-%m-%dT%H:%M:%S.%3fZ"))?;
 
@@ -215,19 +214,20 @@ impl<S: TaskLogSender, T: TimeProvider> TaskLogSubscriber<S, T> {
             };
 
             write!(buf, "{}:{}", target, line)?;
-
-            message = log_visitor.message().map(|s| s.to_string());
         }
 
         buf.write_str("} ")?;
         let fmt_level = FmtLevel::new(meta.level());
         write!(buf, "{}", fmt_level)?;
 
-        buf.write_str(" -")?;
+        buf.write_str(" - ")?;
 
-        let message = message.unwrap_or_default();
-        write!(buf, " {}", message)?;
-        // TODO get message with visitor for log and trace events
+        {
+            let mut sv = StringVisitor::new(&mut buf, true);
+            event.record(&mut sv);
+            sv.finish()?;
+        }
+
         buf.write_char('\n')?;
         Ok(buf)
     }
