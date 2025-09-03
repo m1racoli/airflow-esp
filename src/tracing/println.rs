@@ -19,6 +19,12 @@ fn print_tracing_event(event: &tracing::Event<'_>) {
     let meta = event.metadata();
     let level = *meta.level();
 
+    if level > Level::INFO {
+        // TODO make this configurable
+        // Only print events with level INFO or lower (i.e., INFO, WARN, ERROR)
+        return;
+    }
+
     const RESET: &str = "\u{001B}[0m";
     const RED: &str = "\u{001B}[31m";
     const GREEN: &str = "\u{001B}[32m";
