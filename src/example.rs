@@ -9,9 +9,8 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use core::f32;
+use core::{f32, time::Duration};
 use embassy_sync::lazy_lock::LazyLock;
-use embassy_time::{Duration, Timer};
 use serde::Serialize;
 use tracing::{info, warn};
 
@@ -26,12 +25,14 @@ pub struct MultipleOutputs {
 
 #[derive(Debug, Clone)]
 pub struct ExampleOperator {
-    sleep_secs: u64,
+    sleep: Duration,
 }
 
 impl ExampleOperator {
     pub fn new(sleep_secs: u64) -> Self {
-        Self { sleep_secs }
+        Self {
+            sleep: Duration::from_secs(sleep_secs),
+        }
     }
 }
 
@@ -50,7 +51,8 @@ impl<R: TaskRuntime> Operator<R> for ExampleOperator {
 
         ctx.task_instance().xcom_push("example_key", &42).await?;
 
-        Timer::after(Duration::from_secs(self.sleep_secs)).await;
+        R::sleep(self.sleep).await;
+
         warn!("This feels very fast! 😎");
         info!("I am done");
 

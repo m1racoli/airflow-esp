@@ -346,6 +346,11 @@ impl TaskRuntime for EmbassyTaskRuntime {
     fn time_provider(&self) -> &Self::TimeProvider {
         TIME_PROVIDER.get()
     }
+
+    fn sleep(duration: time::Duration) -> impl Future<Output = ()> + Send + Sync {
+        let duration = Duration::from_micros(duration.as_micros() as u64);
+        Timer::after(duration)
+    }
 }
 
 pub struct EmbassySupervisorComms {
