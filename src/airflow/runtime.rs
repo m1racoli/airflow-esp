@@ -187,12 +187,8 @@ impl LocalWorkerRuntime for EmbassyRuntime<'static> {
 
     async fn sleep(&mut self, duration: time::Duration) -> Option<IntercomMessage> {
         debug!("Sleeping for {} seconds", duration.as_secs());
-        match select(
-            self.recv.receive(),
-            Timer::after(Duration::from_secs(duration.as_secs())),
-        )
-        .await
-        {
+        let duration = Duration::from_micros(duration.as_micros() as u64);
+        match select(self.recv.receive(), Timer::after(duration)).await {
             Either::First(v) => Some(v),
             Either::Second(_) => None,
         }
@@ -266,7 +262,7 @@ impl TaskHandle for EmbassyTaskHandle {
 
     async fn service(&mut self, timeout: time::Duration) -> ServiceResult {
         debug!("Sleeping for {} seconds", timeout.as_secs());
-        let timeout = Duration::from_secs(timeout.as_secs());
+        let timeout = Duration::from_micros(timeout.as_micros() as u64);
         match select3(
             Timer::after(timeout),
             self.result_signal.wait(),
