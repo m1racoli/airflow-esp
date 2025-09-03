@@ -4,7 +4,9 @@
 use airflow_common::api::JWTCompactJWTGenerator;
 use airflow_common::utils::SecretString;
 use airflow_edge_sdk::worker::{EdgeWorker, IntercomMessage, LocalIntercom, LocalWorkerRuntime};
-use airflow_esp::airflow::{EmbassyIntercom, EmbassyRuntime, ReqwlessEdgeApiClient};
+use airflow_esp::airflow::{
+    EmbassyIntercom, EmbassyRuntime, EmbassyTaskRuntime, ReqwlessEdgeApiClient,
+};
 use airflow_esp::button::{Button, listen_boot_button};
 use airflow_esp::display::Display;
 use airflow_esp::example::get_dag_bag;
@@ -15,10 +17,12 @@ use airflow_esp::{
     CONFIG, EVENTS, EspExecutionApiClientFactory, Event, HOSTNAME, NUM_TCP_CONNECTIONS, OFFSET,
     STATE, State, TCP_RX_BUF_SIZE, TCP_TIMEOUT, TCP_TX_BUF_SIZE, TIME_PROVIDER, mk_static,
 };
+use airflow_task_sdk::definitions::DagBag;
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_net::dns::DnsSocket;
 use embassy_net::tcp::client::{TcpClient, TcpClientState};
+use embassy_sync::lazy_lock::LazyLock;
 use embassy_sync::pubsub::PubSubBehavior;
 use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
@@ -35,6 +39,8 @@ use tracing::{debug, info};
 esp_bootloader_esp_idf::esp_app_desc!();
 
 extern crate alloc;
+
+static DAG_BAG: LazyLock<DagBag<EmbassyTaskRuntime>> = LazyLock::new(get_dag_bag);
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
@@ -147,8 +153,7 @@ async fn main(spawner: Spawner) {
 
     start_log_uploader(spawner, &edge_api_client);
 
-    let dag_bag = get_dag_bag();
-    let worker = EdgeWorker::new(edge_api_client, time_provider, runtime, dag_bag);
+    let worker = EdgeWorker::new(edge_api_client, time_provider, runtime, DAG_BAG.get());
 
     match worker.start().await {
         Ok(_) => {}

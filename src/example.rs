@@ -10,11 +10,8 @@ use alloc::{
     vec::Vec,
 };
 use core::{f32, time::Duration};
-use embassy_sync::lazy_lock::LazyLock;
 use serde::Serialize;
 use tracing::{info, warn};
-
-use crate::airflow::EmbassyTaskRuntime;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MultipleOutputs {
@@ -124,7 +121,7 @@ impl<R: TaskRuntime> Operator<R> for RetryOperator {
     }
 }
 
-static DAG_BAG: LazyLock<DagBag<EmbassyTaskRuntime>> = LazyLock::new(|| {
+pub fn get_dag_bag<R: TaskRuntime>() -> DagBag<R> {
     let task = ExampleOperator::new(5)
         .into_task("run")
         .with_multiple_outputs(true);
@@ -139,8 +136,4 @@ static DAG_BAG: LazyLock<DagBag<EmbassyTaskRuntime>> = LazyLock::new(|| {
     let mut dag_bag = DagBag::default();
     dag_bag.add_dag(dag);
     dag_bag
-});
-
-pub fn get_dag_bag() -> &'static DagBag<EmbassyTaskRuntime> {
-    DAG_BAG.get()
 }
