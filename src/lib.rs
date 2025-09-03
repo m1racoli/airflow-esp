@@ -13,6 +13,7 @@ macro_rules! mk_static {
     }};
 }
 
+use airflow_common::api::JWTCompactJWTGenerator;
 use airflow_edge_sdk::worker::WorkerState;
 use core::net::Ipv4Addr;
 use embassy_net::{dns::DnsSocket, tcp::client::TcpClient};
@@ -22,7 +23,8 @@ use embassy_sync::{
 };
 
 use crate::airflow::{
-    OffsetWatchTimeProvider, ReqwlessExecutionApiClient, ReqwlessExecutionApiClientFactory,
+    OffsetWatchTimeProvider, ReqwlessEdgeApiClient, ReqwlessExecutionApiClient,
+    ReqwlessExecutionApiClientFactory,
 };
 
 pub mod airflow;
@@ -40,6 +42,12 @@ pub const TCP_RX_BUF_SIZE: usize = RESOURCES.tcp.rx_buf_size as usize;
 pub const TCP_TIMEOUT: u64 = RESOURCES.tcp.timeout as u64;
 pub const TCP_TX_BUF_SIZE: usize = RESOURCES.tcp.tx_buf_size as usize;
 
+pub type EspEdgeApiClient = ReqwlessEdgeApiClient<
+    'static,
+    JWTCompactJWTGenerator<EspTimeProvider>,
+    TcpClient<'static, NUM_TCP_CONNECTIONS, TCP_TX_BUF_SIZE, TCP_RX_BUF_SIZE>,
+    DnsSocket<'static>,
+>;
 pub type EspExecutionApiClientFactory = ReqwlessExecutionApiClientFactory<
     'static,
     TcpClient<'static, NUM_TCP_CONNECTIONS, TCP_TX_BUF_SIZE, TCP_RX_BUF_SIZE>,

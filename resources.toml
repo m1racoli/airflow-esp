@@ -17,3 +17,5 @@ timeout = 10
 registry_store_size = 32
 # the number of spans which can be active at any time
 span_stack_size = 32
+# the number of log events which can be buffered at any time
+log_events_buffer_size = 32

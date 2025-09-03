@@ -9,6 +9,7 @@ use airflow_esp::button::{Button, listen_boot_button};
 use airflow_esp::display::Display;
 use airflow_esp::example::get_dag_bag;
 use airflow_esp::time::measure_time;
+use airflow_esp::tracing::{shutdown_log_uploader, start_log_uploader};
 use airflow_esp::wifi::init_wifi_stack;
 use airflow_esp::{
     CONFIG, EVENTS, EspExecutionApiClientFactory, Event, HOSTNAME, NUM_TCP_CONNECTIONS, OFFSET,
@@ -143,6 +144,9 @@ async fn main(spawner: Spawner) {
         CONFIG.airflow.edge.api_url,
         jwt_generator,
     );
+
+    start_log_uploader(spawner, &edge_api_client);
+
     let dag_bag = get_dag_bag();
     let worker = EdgeWorker::new(edge_api_client, time_provider, runtime, dag_bag);
 
@@ -150,6 +154,8 @@ async fn main(spawner: Spawner) {
         Ok(_) => {}
         Err(e) => info!("An error occurred during worker execution: {}", e),
     }
+
+    shutdown_log_uploader().await;
 
     loop {
         Timer::after(Duration::from_secs(1)).await;

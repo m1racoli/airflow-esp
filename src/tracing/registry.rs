@@ -1,3 +1,4 @@
+use airflow_common::models::TaskInstanceKey;
 use alloc::rc::Rc;
 use core::{cell::RefCell, sync::atomic::Ordering};
 use embassy_sync::{blocking_mutex::CriticalSectionMutex, lazy_lock::LazyLock};
@@ -10,7 +11,7 @@ use tracing::{
 use tracing_core::span::Current;
 use tracing_subscriber::registry::{LookupSpan, SpanData};
 
-use crate::RESOURCES;
+use crate::{RESOURCES, tracing::task_log::TaskInstanceKeyVisitor};
 
 const REGISTRY_STORE_SIZE: usize = RESOURCES.tracing.registry_store_size as usize;
 const SPAN_STACK_SIZE: usize = RESOURCES.tracing.span_stack_size as usize;
@@ -39,6 +40,19 @@ impl SpanStore {
     fn remove(&self, key: usize) {
         self.0.get().borrow_mut().remove(&key);
     }
+
+    fn get_ti_key(&self, id: &Id) -> Option<TaskInstanceKey> {
+        let key = id.into_u64() as usize;
+        self.0
+            .get()
+            .borrow()
+            .get(&key)
+            .and_then(|inner| inner.ti_key.clone())
+    }
+}
+
+pub fn get_ti_key(id: &Id) -> Option<TaskInstanceKey> {
+    REGISTRY_STORE.get_ti_key(id)
 }
 
 pub struct Registry {
@@ -81,10 +95,25 @@ impl Collect for Registry {
         } else {
             attrs.parent().map(|id| self.clone_span(id))
         };
+
+        // we first check if the parent span has a TI key
+        // because we care about earliest task context span,
+        // in case the user creates their own task context span
+        let ti_key = match &parent {
+            Some(p) => self.get(p).and_then(|inner| inner.ti_key.clone()),
+            None => {
+                // parent span doesn't have a TI key, so let's see if this span has one
+                let mut visitor = TaskInstanceKeyVisitor::default();
+                attrs.record(&mut visitor);
+                visitor.into()
+            }
+        };
+
         let key = self.new_key();
         let data = Rc::new(DataInner {
             metadata: attrs.metadata(),
             parent,
+            ti_key,
         });
         self.spans.insert(key, data);
         Id::from_u64(key as u64)
@@ -181,6 +210,7 @@ impl SpanStack {
 struct DataInner {
     metadata: &'static Metadata<'static>,
     parent: Option<Id>,
+    ti_key: Option<TaskInstanceKey>,
 }
 
 #[derive(Debug, Clone)]

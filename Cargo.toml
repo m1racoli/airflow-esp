@@ -17,6 +17,7 @@ airflow-common = { path = "../airflow-rs/airflow-common", default-features = fal
 airflow-edge-sdk = { path = "../airflow-rs/airflow-edge-sdk", default-features = false }
 airflow-task-sdk = { path = "../airflow-rs/airflow-task-sdk", default-features = false, features = [
   "critical-section",
+  "tracing",
 ] }
 critical-section = "1.2.0"
 display-interface = "0.5.0"
