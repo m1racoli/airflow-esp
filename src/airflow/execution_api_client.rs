@@ -15,13 +15,13 @@ use alloc::{
 };
 use core::{convert::Infallible, fmt::Display};
 use embedded_nal_async::{Dns, TcpConnect};
-use log::{debug, error};
 use reqwless::{
     client::HttpClient,
     headers::ContentType,
     request::{Method, RequestBuilder},
 };
 use serde::{Serialize, de::DeserializeOwned};
+use tracing::{debug, error};
 
 pub struct ReqwlessExecutionApiClientFactory<'a, T: TcpConnect + 'a, D: Dns + 'a> {
     tcp: &'a T,

@@ -57,9 +57,9 @@ dependencies = [
  "airflow-common",
  "airflow-task-sdk",
  "cfg-if",
- "log",
  "serde",
  "thiserror",
+ "tracing",
  "trait-variant",
 ]
 
@@ -112,7 +112,6 @@ version = "0.1.0"
 dependencies = [
  "airflow-common",
  "cfg-if",
- "log",
  "once_cell",
  "serde",
  "thiserror",

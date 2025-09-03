@@ -7,10 +7,10 @@ use embassy_net::{
     udp::{PacketMetadata, UdpSocket},
 };
 use embassy_time::{Duration, Instant, Timer};
-use log::info;
 #[cfg(feature = "stats")]
 use sntpc::NtpResult;
 use sntpc::{NtpContext, NtpTimestampGenerator, get_time};
+use tracing::info;
 
 #[embassy_executor::task]
 pub async fn measure_time(stack: Stack<'static>) {

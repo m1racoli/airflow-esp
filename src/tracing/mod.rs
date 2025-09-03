@@ -12,9 +12,7 @@ use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     channel::{Channel, Sender},
 };
-use log::error;
-use log::info;
-use tracing::collect::set_global_default;
+use tracing::{collect::set_global_default, error, info};
 use tracing_subscriber::subscribe::CollectExt;
 
 use crate::{

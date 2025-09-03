@@ -24,7 +24,7 @@ use embassy_sync::{
     signal::Signal,
 };
 use embassy_time::{Duration, Instant, Timer};
-use log::{debug, info};
+use tracing::{debug, info};
 
 use crate::{CONFIG, EVENTS, EspExecutionApiClientFactory, EspTimeProvider, Event, TIME_PROVIDER};
 

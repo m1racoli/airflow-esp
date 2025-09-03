@@ -18,7 +18,7 @@ use esp_wifi::{
         WifiState,
     },
 };
-use log::info;
+use tracing::info;
 
 pub fn init_wifi_stack(
     spawner: Spawner,

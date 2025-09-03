@@ -1,7 +1,7 @@
 use embassy_sync::pubsub::PubSubBehavior;
 use embassy_time::{Duration, Timer};
 use esp_hal::gpio::Input;
-use log::debug;
+use tracing::debug;
 
 use crate::{EVENTS, Event};
 

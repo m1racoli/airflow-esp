@@ -30,7 +30,7 @@ use esp_hal::rng::Rng;
 use esp_hal::timer::systimer::SystemTimer;
 use esp_hal::timer::timg::TimerGroup;
 use esp_wifi::EspWifiController;
-use log::{debug, info};
+use tracing::{debug, info};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
