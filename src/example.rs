@@ -26,12 +26,12 @@ impl<R: TaskRuntime> Operator<R> for ExampleOperator {
 
     async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Output, TaskError> {
         info!(
-            "I am task instance {} {} {} {} {}",
-            ctx.dag_id(),
-            ctx.task_id(),
-            ctx.run_id(),
-            ctx.try_number(),
-            ctx.map_index()
+            dag_id = %ctx.dag_id(),
+            task_id = %ctx.task_id(),
+            run_id = %ctx.run_id(),
+            try_number = %ctx.try_number(),
+            map_index = %ctx.map_index(),
+            "I am a task instance!",
         );
 
         ctx.task_instance().xcom_push("example_key", &42).await?;
