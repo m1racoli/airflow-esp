@@ -20,6 +20,10 @@ impl ExampleOperator {
 impl<R: TaskRuntime> Operator<R> for ExampleOperator {
     type Output = Value;
 
+    fn set_opts(&self, opts: &mut OperatorOpts) {
+        opts.multiple_outputs = true;
+    }
+
     async fn execute<'t>(&'t mut self, ctx: &'t Context<'t, R>) -> Result<Self::Output, TaskError> {
         info!(
             "I am task instance {} {} {} {} {}",
@@ -104,9 +108,7 @@ impl<R: TaskRuntime> Operator<R> for RetryOperator {
 }
 
 pub fn get_dag_bag<R: TaskRuntime>() -> DagBag<R> {
-    let run = ExampleOperator::new(5)
-        .into_task("run")
-        .with_multiple_outputs(true);
+    let run = ExampleOperator::new(5).into_task("run");
     let print_xcom = PrintXComOperator::new("run").into_task("print_xcom");
     let retry = RetryOperator.into_task("retry");
 
