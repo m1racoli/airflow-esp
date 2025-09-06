@@ -84,7 +84,7 @@ impl<R: TaskRuntime> Operator<R> for PrintXComOperator {
             .key("non_existing")
             .one()
             .await?;
-        info!("Non existing is {:?}", non_existing);
+        assert_eq!(non_existing, None);
 
         Ok(())
     }
