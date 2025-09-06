@@ -61,5 +61,5 @@ fn print_tracing_event(event: &tracing::Event<'_>) {
     #[cfg(not(feature = "wokwi"))]
     esp_println::println!("{}{} {}: {}{}", color, level, target, message, reset);
     #[cfg(feature = "wokwi")]
-    esp_println::print!("{}{} {}: {}{}\n\r", color, level, target, message, reset);
+    esp_println::print!("{}{} {}: {}{}\r\n", color, level, target, message, reset);
 }
