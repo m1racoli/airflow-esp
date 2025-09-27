@@ -39,7 +39,7 @@ dependencies = [
 
 [[package]]
 name = "airflow-common"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "cfg-if",
  "chrono",
@@ -52,7 +52,7 @@ dependencies = [
 
 [[package]]
 name = "airflow-edge-sdk"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "airflow-common",
  "airflow-task-sdk",
@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "airflow-esp"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "airflow-common",
  "airflow-edge-sdk",
@@ -108,7 +108,7 @@ dependencies = [
 
 [[package]]
 name = "airflow-task-sdk"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "airflow-common",
  "cfg-if",
