@@ -17,11 +17,11 @@ name = "airflow-esp"
 path = "./src/bin/main.rs"
 
 [dependencies]
-airflow-common = { path = "../airflow-rs/airflow-common", default-features = false, features = [
+airflow-common = { git = "https://github.com/m1racoli/airflow-rs.git", default-features = false, features = [
   "jwt-compact",
 ] }
-airflow-edge-sdk = { path = "../airflow-rs/airflow-edge-sdk", default-features = false }
-airflow-task-sdk = { path = "../airflow-rs/airflow-task-sdk", default-features = false, features = [
+airflow-edge-sdk = { git = "https://github.com/m1racoli/airflow-rs.git", default-features = false }
+airflow-task-sdk = { git = "https://github.com/m1racoli/airflow-rs.git", default-features = false, features = [
   "critical-section",
 ] }
 critical-section = "1.2.0"
