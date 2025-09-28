@@ -6,7 +6,7 @@ rx_buf_size = 4096
 num_sockets = 6
 
 [tcp]
-# 1 for edge worker + 2 * task concurrency
+# 1 for edge worker + 1 * task concurrency + 1 for log uploader
 num_connections = 3
 rx_buf_size = 1024
 tx_buf_size = 1024
