@@ -1,9 +1,15 @@
 [package]
-edition = "2024"
 name = "airflow-esp"
+description = "An Airflow Edge Worker for the ESP32-C3 micro controller."
 version = "0.0.1"
-license-file = "LICENSE"
+
+authors = ["Cedrik Neumann <7921017+m1racoli@users.noreply.github.com>"]
+categories = ["embedded", "no-std"]
+edition = "2024"
 keywords = ["airflow", "embedded", "esp", "esp32c3"]
+license-file = "LICENSE"
+publish = false
+repository = "https://github.com/m1racoli/airflow-esp"
 rust-version = "1.89"
 
 [[bin]]
