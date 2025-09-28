@@ -52,6 +52,11 @@ async fn main(spawner: Spawner) {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
+    // Embassy
+    let timer0 = SystemTimer::new(peripherals.SYSTIMER);
+    esp_hal_embassy::init(timer0.alarm0);
+    info!("Embassy initialized!");
+
     // Event handler
     spawner.spawn(event_handler()).ok();
     info!("Event handler initialized!");
@@ -71,11 +76,6 @@ async fn main(spawner: Spawner) {
     let display = Display::init(i2c).expect("Failed to initialize display");
     spawner.spawn(render(display)).ok();
     info!("Display initialized!");
-
-    // Embassy
-    let timer0 = SystemTimer::new(peripherals.SYSTIMER);
-    esp_hal_embassy::init(timer0.alarm0);
-    info!("Embassy initialized!");
 
     // Wi-Fi
     let rng = Rng::new(peripherals.RNG);
