@@ -2,13 +2,16 @@
 runner = "espflash flash --monitor --chip esp32c3"
 
 [env]
-ESP_LOG="info"
+AIRFLOW_VERSION = "3.2.0"
+EDGE_PROVIDER_VERSION = "1.3.1"
+ESP_LOG = "info"
 
 [build]
 rustflags = [
   # Required to obtain backtraces (e.g. when using the "esp-backtrace" crate.)
   # NOTE: May negatively impact performance of produced code
-  "-C", "force-frame-pointers",
+  "-C",
+  "force-frame-pointers",
 ]
 
 target = "riscv32imc-unknown-none-elf"
