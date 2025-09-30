@@ -11,16 +11,40 @@
             "rotate": 90,
             "attrs": { "flashSize": "16" }
         },
-        { "type": "board-ssd1306", "id": "ssd1306", "top": 25, "left": 200, "attrs": { } },
+        { "type": "board-ssd1306", "id": "ssd1306", "top": 22.34, "left": 249.83, "attrs": { } },
         {
             "type": "wokwi-pushbutton-6mm",
             "id": "btn1",
             "top": 165,
             "left": 44.8,
             "rotate": 270,
-            "attrs": { "color": "red", "xray": "1", "bounce": "1" }
+            "attrs": { "color": "grey", "xray": "1", "bounce": "1" }
         },
-        { "type": "wokwi-text", "id": "text1", "top": 163.2, "left": 0, "attrs": { "text": "Boot" } }
+        { "type": "wokwi-text", "id": "text1", "top": 163.2, "left": 0, "attrs": { "text": "Boot" } },
+        {
+            "type": "wokwi-pushbutton-6mm",
+            "id": "btn2",
+            "top": 164.2,
+            "left": 138.4,
+            "rotate": 90,
+            "attrs": { "color": "green", "xray": "1" }
+        },
+        {
+            "type": "wokwi-pushbutton-6mm",
+            "id": "btn3",
+            "top": 164.2,
+            "left": 167.2,
+            "rotate": 90,
+            "attrs": { "color": "yellow", "xray": "1" }
+        },
+        {
+            "type": "wokwi-pushbutton-6mm",
+            "id": "btn4",
+            "top": 164.2,
+            "left": 196,
+            "rotate": 90,
+            "attrs": { "color": "red", "xray": "1" }
+        }
     ],
     "connections": [
         [ "esp:TX", "$serialMonitor:RX", "", [ ] ],
@@ -30,7 +54,13 @@
         [ "ssd1306:SCL", "esp:1", "green", [ "v-21.86", "h-233.97" ] ],
         [ "esp:GND.5", "ssd1306:GND", "black", [ "v-38.4", "h266.97" ] ],
         [ "esp:GND.8", "btn1:1.r", "black", [ "v0" ] ],
-        [ "esp:9", "btn1:2.r", "green", [ "v0" ] ]
+        [ "esp:9", "btn1:2.r", "gray", [ "v0" ] ],
+        [ "esp:GND.8", "btn2:2.l", "black", [ "v16.78", "h96" ] ],
+        [ "esp:GND.8", "btn3:2.l", "black", [ "v16.78", "h38.4" ] ],
+        [ "esp:GND.8", "btn4:2.l", "black", [ "v16.78", "h67.2" ] ],
+        [ "esp:19", "btn2:1.l", "green", [ "v26.38", "h124.8" ] ],
+        [ "esp:4", "btn3:1.l", "gold", [ "v26.38", "h96" ] ],
+        [ "esp:7", "btn4:1.l", "red", [ "v26.38", "h38.4" ] ]
     ],
     "serialMonitor": { "display": "terminal", "convertEol": true },
     "dependencies": { }

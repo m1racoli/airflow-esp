@@ -7,7 +7,7 @@ use airflow_edge_sdk::worker::{EdgeWorker, IntercomMessage, LocalIntercom, Local
 use airflow_esp::airflow::{
     EmbassyIntercom, EmbassyRuntime, EmbassyTaskRuntime, ReqwlessEdgeApiClient,
 };
-use airflow_esp::button::{Button, listen_boot_button};
+use airflow_esp::button::{Button, listen_button};
 use airflow_esp::display::Display;
 use airflow_esp::example::get_dag_bag;
 use airflow_esp::time::measure_time;
@@ -66,7 +66,26 @@ async fn main(spawner: Spawner) {
         peripherals.GPIO9,
         InputConfig::default().with_pull(Pull::Up),
     );
-    spawner.spawn(listen_boot_button(boot_button)).ok();
+    let green_button: Input<'_> = Input::new(
+        peripherals.GPIO19,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    let yellow_button: Input<'_> = Input::new(
+        peripherals.GPIO4,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    let red_button: Input<'_> = Input::new(
+        peripherals.GPIO7,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    spawner.spawn(listen_button(boot_button, Button::Boot)).ok();
+    spawner
+        .spawn(listen_button(green_button, Button::Green))
+        .ok();
+    spawner
+        .spawn(listen_button(yellow_button, Button::Yellow))
+        .ok();
+    spawner.spawn(listen_button(red_button, Button::Red)).ok();
 
     // Display
     let i2c = I2c::new(peripherals.I2C0, Config::default())

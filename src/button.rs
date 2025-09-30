@@ -8,19 +8,21 @@ use crate::{EVENTS, Event};
 #[derive(Debug, Clone, Copy)]
 pub enum Button {
     Boot,
+    Green,
+    Yellow,
+    Red,
 }
 
-#[embassy_executor::task]
-pub async fn listen_boot_button(input: Input<'static>) {
-    listen_button(input, Button::Boot).await
+#[embassy_executor::task(pool_size = 4)]
+pub async fn listen_button(input: Input<'static>, button: Button) {
+    _listen_button(input, button).await;
 }
 
-async fn listen_button(mut input: Input<'_>, button: Button) {
+async fn _listen_button(mut input: Input<'_>, button: Button) {
     loop {
         input.wait_for_falling_edge().await;
         debug!("Button {:?} pressed", button);
         EVENTS.publish_immediate(Event::ButtonPressed(button));
-        // EVENTS.send(Event::ButtonPressed(button)).await;
         debounce_button(&mut input).await;
     }
 }
