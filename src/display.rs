@@ -13,6 +13,7 @@ use embedded_graphics::{
 };
 use embedded_iconoir::icons::size16px::communication::Internet;
 use embedded_iconoir::icons::size16px::connectivity::{PrivateWifi, WifiOff};
+use embedded_iconoir::icons::size32px::food::CoffeeCup;
 use embedded_iconoir::prelude::*;
 use esp_hal::{DriverMode, i2c::master::I2c};
 use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
@@ -66,6 +67,16 @@ where
     }
 
     pub fn update(&mut self, state: State) -> Result<(), DisplayError> {
+        if state.terminated {
+            let coffee = CoffeeCup::new(BinaryColor::On);
+            let pos = Point::new(48, 16);
+            let image = Image::new(&coffee, pos);
+            image.draw(&mut self.display)?;
+            self.display.flush()?;
+            self.display.clear_buffer();
+            return Ok(());
+        }
+
         let mut y = 9i32;
         let mut buf: heapless::String<64> = heapless::String::new();
 

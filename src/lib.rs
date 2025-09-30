@@ -89,6 +89,7 @@ pub enum Event {
     Ip(Option<Ipv4Addr>),
     ButtonPressed(button::Button),
     WorkerState(WorkerState),
+    Terminated,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -96,6 +97,7 @@ pub struct State {
     pub wifi: WifiStatus,
     pub ip: Option<core::net::Ipv4Addr>,
     pub worker_state: Option<WorkerState>,
+    pub terminated: bool,
 }
 
 #[derive(Debug, Default, Clone, Copy)]

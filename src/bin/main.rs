@@ -188,6 +188,7 @@ async fn main(spawner: Spawner) {
 
     set_leds(Led::None);
     shutdown_log_uploader().await;
+    EVENTS.publish_immediate(Event::Terminated);
 
     loop {
         Timer::after(Duration::from_secs(1)).await;
@@ -213,6 +214,9 @@ async fn event_handler() {
             Event::ButtonPressed(_) => {}
             Event::WorkerState(s) => {
                 state.worker_state = Some(s);
+            }
+            Event::Terminated => {
+                state.terminated = true;
             }
         }
         sender.send(state.clone());
@@ -242,6 +246,10 @@ async fn render(mut display: Display<'static, Blocking>) {
         match display.update(state.clone()) {
             Ok(_) => {}
             Err(e) => info!("Failed to update display: {e:?}"),
+        }
+        // stop rendering if terminated
+        if state.terminated {
+            break;
         }
     }
 }
