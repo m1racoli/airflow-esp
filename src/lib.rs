@@ -31,6 +31,7 @@ pub mod airflow;
 pub mod button;
 pub mod display;
 pub mod example;
+pub mod led;
 pub mod time;
 pub mod tracing;
 pub mod wifi;

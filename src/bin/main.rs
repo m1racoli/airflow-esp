@@ -10,6 +10,7 @@ use airflow_esp::airflow::{
 use airflow_esp::button::{Button, listen_button};
 use airflow_esp::display::Display;
 use airflow_esp::example::get_dag_bag;
+use airflow_esp::led::run_leds;
 use airflow_esp::time::measure_time;
 use airflow_esp::tracing::{shutdown_log_uploader, start_log_uploader};
 use airflow_esp::wifi::init_wifi_stack;
@@ -28,7 +29,7 @@ use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
 use esp_hal::Blocking;
 use esp_hal::clock::CpuClock;
-use esp_hal::gpio::{Input, InputConfig, Pull};
+use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull};
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::rng::Rng;
 use esp_hal::timer::systimer::SystemTimer;
@@ -86,6 +87,12 @@ async fn main(spawner: Spawner) {
         .spawn(listen_button(yellow_button, Button::Yellow))
         .ok();
     spawner.spawn(listen_button(red_button, Button::Red)).ok();
+
+    // Setup LEDs
+    let green_led = Output::new(peripherals.GPIO10, Level::Low, OutputConfig::default());
+    let yellow_led = Output::new(peripherals.GPIO3, Level::Low, OutputConfig::default());
+    let red_led = Output::new(peripherals.GPIO2, Level::Low, OutputConfig::default());
+    spawner.spawn(run_leds(green_led, yellow_led, red_led)).ok();
 
     // Display
     let i2c = I2c::new(peripherals.I2C0, Config::default())
