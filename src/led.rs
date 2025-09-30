@@ -47,6 +47,6 @@ pub async fn run_leds(
     }
 }
 
-pub fn set_led(led: Led) {
+pub fn set_leds(led: Led) {
     LED.signal(led);
 }

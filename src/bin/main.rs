@@ -10,7 +10,7 @@ use airflow_esp::airflow::{
 use airflow_esp::button::{Button, listen_button};
 use airflow_esp::display::Display;
 use airflow_esp::example::get_dag_bag;
-use airflow_esp::led::run_leds;
+use airflow_esp::led::{Led, run_leds, set_leds};
 use airflow_esp::time::measure_time;
 use airflow_esp::tracing::{shutdown_log_uploader, start_log_uploader};
 use airflow_esp::wifi::init_wifi_stack;
@@ -186,6 +186,7 @@ async fn main(spawner: Spawner) {
         Err(e) => info!("An error occurred during worker execution: {}", e),
     }
 
+    set_leds(Led::None);
     shutdown_log_uploader().await;
 
     loop {

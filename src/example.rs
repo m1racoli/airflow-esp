@@ -3,7 +3,7 @@ use tracing::info;
 
 use crate::{
     button::{Button, next_button_pressed},
-    led::{Led, set_led},
+    led::{Led, set_leds},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -48,7 +48,7 @@ impl<R: TaskRuntime> Operator<R> for LedOperator {
         };
 
         info!("Setting LED to {:?}", led);
-        set_led(led);
+        set_leds(led);
 
         Ok(())
     }
