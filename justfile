@@ -5,3 +5,7 @@ wokwi-build:
 # Launch the Wokwi gateway
 wokwi-gateway:
     @wokwigw
+
+# run just commands from the dev project
+dev *ARGS:
+    @just dev/{{ARGS}}

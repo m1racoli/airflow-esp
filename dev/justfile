@@ -1,0 +1,34 @@
+PYTHON_VERSION := "3.12"
+AIRFLOW_VERSION := "3.1.0"
+VENV := ".venv"
+
+_venv:
+    @uv python --quiet install {{ PYTHON_VERSION }}
+    @uv venv --quiet -p {{ PYTHON_VERSION }} --allow-existing --seed {{ VENV }}
+
+_requirements_in: _venv
+    @cp requirements.in {{ VENV }}/requirements.in
+    @echo "\napache-airflow=={{ AIRFLOW_VERSION }}" >> {{ VENV }}/requirements.in
+
+# Compile requirements.txt based on requirements*.in files
+requirements: _requirements_in
+    @docker run -qit --rm --entrypoint python apache/airflow:{{ AIRFLOW_VERSION }}-python{{ PYTHON_VERSION }} -m pip freeze > {{ VENV }}/requirements.tmp
+    @uv pip compile --quiet --python-version {{ PYTHON_VERSION }} {{ VENV }}/requirements.in -o {{ VENV }}/requirements.tmp
+    @cp {{ VENV }}/requirements.tmp requirements.txt
+
+# Sync virtual env with requirements.txt
+sync: _venv
+    @uv pip sync requirements.txt
+
+start:
+    @docker compose up -d --build
+
+stop:
+    @docker compose stop
+
+restart:
+    @docker compose stop
+    @docker compose up -d --build
+
+kill:
+    @docker compose down
