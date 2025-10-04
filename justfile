@@ -9,3 +9,6 @@ wokwi-gateway:
 # run just commands from the dev project
 dev *ARGS:
     @just dev/{{ARGS}}
+
+monitor:
+    @espflash monitor --chip esp32c3
