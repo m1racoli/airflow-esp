@@ -3,11 +3,13 @@ use crate::EVENTS;
 use crate::Event;
 use crate::HOSTNAME;
 use crate::STACK_NUM_SOCKETS;
+use crate::STATE;
 use crate::WifiStatus;
 use crate::mk_static;
 use embassy_executor::Spawner;
 use embassy_net::DhcpConfig;
 use embassy_net::{Runner, Stack, StackResources};
+use embassy_time::WithTimeout;
 use embassy_time::{Duration, Timer};
 use esp_hal::rng::Rng;
 use esp_wifi::wifi::AuthMethod;
@@ -57,7 +59,33 @@ async fn connection(mut controller: WifiController<'static>) {
     loop {
         if esp_wifi::wifi::wifi_state() == WifiState::StaConnected {
             // wait until we're no longer connected
-            controller.wait_for_event(WifiEvent::StaDisconnected).await;
+            match controller
+                .wait_for_event(WifiEvent::StaDisconnected)
+                .with_timeout(Duration::from_secs(10))
+                .await
+            {
+                Ok(_) => {}
+                Err(_) => {
+                    // still connected
+                    // check if we should terminate
+                    if let Some(state) = STATE.try_get()
+                        && state.terminated
+                    {
+                        controller
+                            .disconnect_async()
+                            .await
+                            .expect("Failed to disconnect wifi");
+                        info!("Wifi disconnected.");
+                        controller
+                            .stop_async()
+                            .await
+                            .expect("Failed to stop wifi controller");
+                        info!("Wifi controller stopped.");
+                        break;
+                    }
+                    continue;
+                }
+            };
             sender.publish(Event::Wifi(WifiStatus::Disconnected)).await;
             info!("Wifi disconnected!");
             Timer::after(Duration::from_millis(5000)).await
@@ -94,6 +122,11 @@ async fn connection(mut controller: WifiController<'static>) {
                 Timer::after(Duration::from_millis(5000)).await
             }
         }
+    }
+
+    // if we exit the wifi controller get's dropped, which we want to avoid for now
+    loop {
+        Timer::after(Duration::from_secs(10)).await;
     }
 }
 
