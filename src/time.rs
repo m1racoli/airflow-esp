@@ -6,81 +6,115 @@ use embassy_net::{
     dns::DnsQueryType,
     udp::{PacketMetadata, UdpSocket},
 };
-use embassy_time::{Duration, Instant, Timer};
-#[cfg(feature = "stats")]
+use embassy_time::{Duration, Instant, Timer, WithTimeout};
 use sntpc::NtpResult;
 use sntpc::{NtpContext, NtpTimestampGenerator, get_time};
-use tracing::info;
+use tracing::{debug, error, info};
 
 #[embassy_executor::task]
 pub async fn measure_time(stack: Stack<'static>) {
-    // Create UDP socket
-    let mut rx_meta = [PacketMetadata::EMPTY; 16];
-    let mut rx_buffer = [0; 4096];
-    let mut tx_meta = [PacketMetadata::EMPTY; 16];
-    let mut tx_buffer = [0; 4096];
-
-    let mut socket = UdpSocket::new(
-        stack,
-        &mut rx_meta,
-        &mut rx_buffer,
-        &mut tx_meta,
-        &mut tx_buffer,
-    );
-    socket.bind(123).unwrap();
-
-    // TODO: query DNS on every loop iteration
-    let ntp_address = stack
-        .dns_query(CONFIG.ntp.server, DnsQueryType::A)
-        .await
-        .expect("Failed to resolve DNS");
-
-    if ntp_address.is_empty() {
-        panic!("Empty DNS response");
-    }
-
-    let addr: IpAddr = ntp_address[0].into();
-    info!("NTP server resolved to: {}", addr);
-
-    let socket_addr = SocketAddr::new(addr, 123);
-    #[cfg(feature = "stats")]
-    let mut first: Option<NtpResult> = None;
-    let context = NtpContext::new(Timestamp::default());
+    let ntp_client = NtpClient::new(stack, CONFIG.ntp.server);
     let offset = OFFSET.sender();
 
-    // the first request has some delay (around 500 ms)
-    // warming up the socket
-    if let Ok(result) = get_time(socket_addr, &socket, context).await {
-        info!("{result:?}");
-    }
-
     loop {
-        match get_time(socket_addr, &socket, context).await {
+        match ntp_client.get_time().await {
             Ok(result) => {
                 offset.send(result.offset);
                 info!("{result:?}");
-                #[cfg(feature = "stats")]
-                match first {
-                    Some(first) => {
-                        let offset_diff = result.offset - first.offset;
-                        let ts_diff = result.seconds as i64 - first.seconds as i64;
-                        let relative_diff = offset_diff as f64 / (ts_diff * 1_000_000) as f64;
-                        info!(
-                            "Drift: {offset_diff} micros after {ts_diff} seconds ({relative_diff:e} relative)"
-                        );
-                    }
-                    None => {
-                        first = Some(result);
-                    }
-                }
-
                 Timer::after(Duration::from_secs(3600)).await;
             }
             Err(e) => {
-                info!("Failed to get NTP time: {e:?}");
+                error!("Failed to get NTP time: {e:?}");
                 Timer::after(Duration::from_secs(5)).await;
             }
         }
+    }
+}
+
+pub struct NtpClient {
+    stack: Stack<'static>,
+    hostname: &'static str,
+    port: u16,
+    timeout: Duration,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum NtpClientError {
+    #[error("Timeout: {0:?}")]
+    Timeout(embassy_time::TimeoutError),
+    #[error("DNS: {0:?}")]
+    Dns(embassy_net::dns::Error),
+    #[error("Empty DNS response")]
+    EmptyDns,
+    #[error("NTP: {0:?}")]
+    Ntp(sntpc::Error),
+    #[error("UDP Bind: {0:?}")]
+    Bind(embassy_net::udp::BindError),
+}
+
+impl NtpClient {
+    pub fn new(stack: Stack<'static>, hostname: &'static str) -> Self {
+        Self {
+            stack,
+            hostname,
+            port: 123,
+            timeout: Duration::from_secs(10),
+        }
+    }
+
+    pub fn with_port(mut self, port: u16) -> Self {
+        self.port = port;
+        self
+    }
+
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    async fn resolve(&self) -> Result<IpAddr, NtpClientError> {
+        let addresses = self
+            .stack
+            .dns_query(self.hostname, DnsQueryType::A)
+            .with_timeout(self.timeout)
+            .await
+            .map_err(NtpClientError::Timeout)?
+            .map_err(NtpClientError::Dns)?;
+
+        if addresses.is_empty() {
+            return Err(NtpClientError::EmptyDns);
+        }
+
+        let addr: IpAddr = addresses[0].into();
+        debug!("NTP server resolved to: {}", addr);
+        Ok(addr)
+    }
+
+    pub async fn get_time(&self) -> Result<NtpResult, NtpClientError> {
+        let addr = SocketAddr::new(self.resolve().await?, self.port);
+
+        let mut rx_meta = [PacketMetadata::EMPTY; 16];
+        let mut rx_buffer = [0; 512];
+        let mut tx_meta = [PacketMetadata::EMPTY; 16];
+        let mut tx_buffer = [0; 512];
+
+        let mut socket = UdpSocket::new(
+            self.stack,
+            &mut rx_meta,
+            &mut rx_buffer,
+            &mut tx_meta,
+            &mut tx_buffer,
+        );
+        socket.bind(self.port).map_err(NtpClientError::Bind)?;
+        let context = NtpContext::new(Timestamp::default());
+
+        let result = get_time(addr, &socket, context)
+            .with_timeout(self.timeout)
+            .await
+            .map_err(NtpClientError::Timeout)?
+            .map_err(NtpClientError::Ntp)?;
+
+        Ok(result)
     }
 }
 
