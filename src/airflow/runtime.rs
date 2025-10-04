@@ -180,6 +180,18 @@ impl<'r> EmbassyRuntime<'r> {
     }
 }
 
+impl Clone for EmbassyRuntime<'_> {
+    fn clone(&self) -> Self {
+        Self {
+            spawner: self.spawner,
+            recv: self.recv,
+            send: self.send,
+            hostname: self.hostname,
+            client_factory: self.client_factory.clone(),
+        }
+    }
+}
+
 impl LocalWorkerRuntime for EmbassyRuntime<'static> {
     type Job = EmbassyEdgeJob;
     type Intercom = EmbassyIntercom;

@@ -35,7 +35,7 @@ use esp_hal::rng::Rng;
 use esp_hal::timer::systimer::SystemTimer;
 use esp_hal::timer::timg::TimerGroup;
 use esp_wifi::EspWifiController;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -179,11 +179,23 @@ async fn main(spawner: Spawner) {
 
     start_log_uploader(spawner, &edge_api_client);
 
-    let worker = EdgeWorker::new(edge_api_client, time_provider, runtime, DAG_BAG.get());
+    loop {
+        let worker = EdgeWorker::new(
+            edge_api_client.clone(),
+            time_provider.clone(),
+            runtime.clone(),
+            DAG_BAG.get(),
+        );
 
-    match worker.start().await {
-        Ok(_) => {}
-        Err(e) => info!("An error occurred during worker execution: {}", e),
+        match worker.start().await {
+            Ok(_) => {
+                break;
+            }
+            Err(e) => {
+                error!("An error occurred during worker execution: {}", e);
+                Timer::after(Duration::from_secs(5)).await;
+            }
+        }
     }
 
     set_leds(Led::None);
