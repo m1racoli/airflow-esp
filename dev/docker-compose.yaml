@@ -282,7 +282,7 @@ services:
     ports:
       - "123:123/udp"
     environment:
-      NTP_SERVERS: "time.cloudflare.com,pool.ntp.org"
+      NTP_SERVERS: "127.127.1.1"
     restart: always
 
 volumes:
