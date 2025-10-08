@@ -276,8 +276,6 @@ services:
 
   ntp:
     image: dockurr/chrony:latest
-    profiles:
-      - ntp
     container_name: ntp
     ports:
       - "123:123/udp"
