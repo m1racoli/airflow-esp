@@ -32,9 +32,8 @@ use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull};
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::rng::Rng;
-use esp_hal::timer::systimer::SystemTimer;
 use esp_hal::timer::timg::TimerGroup;
-use esp_wifi::EspWifiController;
+use esp_radio::Controller;
 use tracing::{debug, error, info};
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -43,7 +42,7 @@ extern crate alloc;
 
 static DAG_BAG: LazyLock<DagBag<EmbassyTaskRuntime>> = LazyLock::new(get_dag_bag);
 
-#[esp_hal_embassy::main]
+#[esp_rtos::main]
 async fn main(spawner: Spawner) {
     // first allocate heap before we can init tracing
     esp_alloc::heap_allocator!(size: 72 * 1024);
@@ -54,9 +53,10 @@ async fn main(spawner: Spawner) {
     let peripherals = esp_hal::init(config);
 
     // Embassy
-    let timer0 = SystemTimer::new(peripherals.SYSTIMER);
-    esp_hal_embassy::init(timer0.alarm0);
-    info!("Embassy initialized!");
+    let timg0 = TimerGroup::new(peripherals.TIMG0);
+    let sw_interrupt =
+        esp_hal::interrupt::software::SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
+    esp_rtos::start(timg0.timer0, sw_interrupt.software_interrupt0);
 
     // Event handler
     spawner.spawn(event_handler()).ok();
@@ -104,15 +104,12 @@ async fn main(spawner: Spawner) {
     info!("Display initialized!");
 
     // Wi-Fi
-    let rng = Rng::new(peripherals.RNG);
-    let timer_group: TimerGroup<_> = TimerGroup::new(peripherals.TIMG0);
+    let rng = Rng::new();
 
-    let esp_wifi_ctrl = &*mk_static!(
-        EspWifiController<'static>,
-        esp_wifi::init(timer_group.timer0, rng).unwrap()
-    );
+    let esp_ctrl = &*mk_static!(Controller<'static>, esp_radio::init().unwrap());
     // TODO can we move this back to the `init_wifi_stack` function?
-    let (controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, peripherals.WIFI).unwrap();
+    let (controller, interfaces) =
+        esp_radio::wifi::new(esp_ctrl, peripherals.WIFI, Default::default()).unwrap();
 
     let stack = init_wifi_stack(spawner, rng, controller, interfaces);
     info!("Network stack initialized!");

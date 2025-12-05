@@ -12,19 +12,17 @@ use embassy_net::{Runner, Stack, StackResources};
 use embassy_time::WithTimeout;
 use embassy_time::{Duration, Timer};
 use esp_hal::rng::Rng;
-use esp_wifi::wifi::AuthMethod;
-use esp_wifi::{
-    config::PowerSaveMode,
-    wifi::{
-        ClientConfiguration, Configuration, Interfaces, WifiController, WifiDevice, WifiEvent,
-        WifiState,
-    },
-};
+use esp_radio::wifi::AuthMethod;
+use esp_radio::wifi::ClientConfig;
+use esp_radio::wifi::ModeConfig;
+use esp_radio::wifi::PowerSaveMode;
+use esp_radio::wifi::WifiStaState;
+use esp_radio::wifi::{Interfaces, WifiController, WifiDevice, WifiEvent};
 use tracing::info;
 
 pub fn init_wifi_stack(
     spawner: Spawner,
-    mut rng: Rng,
+    rng: Rng,
     mut controller: WifiController<'static>,
     interfaces: Interfaces<'static>,
 ) -> Stack<'static> {
@@ -57,7 +55,7 @@ async fn connection(mut controller: WifiController<'static>) {
     info!("start connection task");
     info!("Device capabilities: {:?}", controller.capabilities());
     loop {
-        if esp_wifi::wifi::wifi_state() == WifiState::StaConnected {
+        if esp_radio::wifi::sta_state() == WifiStaState::Connected {
             // wait until we're no longer connected
             match controller
                 .wait_for_event(WifiEvent::StaDisconnected)
@@ -100,13 +98,13 @@ async fn connection(mut controller: WifiController<'static>) {
         };
 
         if !matches!(controller.is_started(), Ok(true)) {
-            let client_config = Configuration::Client(ClientConfiguration {
-                ssid: ssid.into(),
-                password: password.into(),
-                auth_method,
-                ..Default::default()
-            });
-            controller.set_configuration(&client_config).unwrap();
+            let client_config = ModeConfig::Client(
+                ClientConfig::default()
+                    .with_ssid(ssid.into())
+                    .with_password(password.into())
+                    .with_auth_method(auth_method),
+            );
+            controller.set_config(&client_config).unwrap();
             controller.start_async().await.unwrap();
             sender.publish(Event::Wifi(WifiStatus::Connecting)).await;
             info!("Connecting to {ssid} ...");
