@@ -35,7 +35,7 @@ embassy-net = { version = "0.6.0", features = [
   "udp",
   "dns",
 ] }
-embassy-sync = "0.7.0"
+embassy-sync = "0.7.2"
 embassy-time = { version = "0.4.0", features = ["generic-queue-8"] }
 embedded-graphics = "0.8.1"
 embedded-iconoir = { version = "0.2.3", default-features = false, features = ["16px", "32px"] }
@@ -60,7 +60,7 @@ esp-wifi = { version = "0.15.0", features = [
   "log-04",
   "wifi",
 ] }
-heapless = { version = "0.8.0", default-features = false }
+heapless = { version = "0.9.2", default-features = false }
 log = { version = "0.4.21" }
 once_cell = { version = "1", default-features = false, features = ["critical-section"] }
 portable-atomic = { version = "1.11.0", default-features = false }
