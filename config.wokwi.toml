@@ -9,9 +9,9 @@ server = "pool.ntp.org"
 jwt_secret = "rEVfqc5f8WQDLCJcrKKKtQ=="
 
 [airflow.core]
-execution_api_server_url = "http://host.wokwi.internal:28080/execution"
+execution_api_server_url = "http://host.wokwi.internal:28081/execution"
 
 [airflow.edge]
-api_url = "http://host.wokwi.internal:28080/edge_worker/v1"
+api_url = "http://host.wokwi.internal:28081/edge_worker/v1"
 heartbeat_interval = 30
 job_poll_interval = 5
